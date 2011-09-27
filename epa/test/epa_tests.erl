@@ -39,9 +39,25 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+unload() ->
+    application:unload(epa).
+stop(_) ->
+    application:stop(epa).
 
-start_app_test() ->
+start_stop_test_() ->
+    {foreach,
+     fun unload/0,
+     fun stop/1,
+     [?_test(t_start_app()),
+      ?_test(t_stop_app())]}.
+
+t_start_app() ->
     ok = application:start(epa),
     ?assertNot(undefined == whereis(epa_sup)).
+
+t_stop_app() ->
+    application:start(epa),
+    ok = application:stop(epa),
+    ?assert(undefined == whereis(epa_sup)).
 
 -endif.
