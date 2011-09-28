@@ -124,8 +124,11 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info(_Info, State) ->
-    {noreply, State}.
+% TODO: Use some special pattern on messages to distinguish it from "random" messages.
+handle_info(Msg, State) ->
+    Callback = State#state.callback,
+    UserArgs = Callback:execute(Msg, State#state.user_args),
+    {noreply, State#state{user_args = UserArgs}}.
 
 %% --------------------------------------------------------------------
 %% Function: terminate/2

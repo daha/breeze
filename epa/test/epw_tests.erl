@@ -72,6 +72,7 @@ start_stop_test() ->
     ?assertNot(undefined == process_info(Pid)),
     {ok, _} = epw:stop(Pid).
 
+% TODO: rewrite without receive
 init_test() ->
     Pid = start(),
     receive init -> ok end,
@@ -82,6 +83,7 @@ stop_should_return_the_state_test() ->
     Pid = start(Ref),
     ?assertEqual({ok, Ref}, epw:stop(Pid)).
 
+% TODO: rewrite without receive
 stop_should_call_terminate_test() ->
     Args = [{terminate, self()}],
     Pid = start(Args),
@@ -94,6 +96,14 @@ behaviour_info_test() ->
                 {terminate,2}],
     Actual = epw_behaviour:behaviour_info(callbacks),
     ?assertEqual(Expected, Actual).
+
+% TODO: rewrite without receive
+execute_test() ->
+    Ref = make_ref(),
+    Pid = start(Ref),
+    Pid ! self(),
+    receive {execute, Ref} -> ok end,
+    epw:stop(Pid).
 
 % Helper functions
 flush() ->
