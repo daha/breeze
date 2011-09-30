@@ -46,6 +46,7 @@
 -export([start_link/2]).
 -export([start_workers/2]).
 -export([multicast/2]).
+-export([sync/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -63,6 +64,9 @@ start_workers(Server, NumberOfWorkers) ->
 
 multicast(Server,  Msg) ->
     gen_server:cast(Server, {msg, all, Msg}).
+
+sync(Server) ->
+    gen_server:call(Server, sync).
 
 %% ====================================================================
 %% Server functions
@@ -93,6 +97,9 @@ init([SupervisorPid]) ->
 handle_call({start_workers, NumberOfWorkers}, _From, State) ->
     {ok, NewWorkers} = epw_sup:start_workers(State#state.sup_pid, NumberOfWorkers),
     {reply, ok, State#state{workers = State#state.workers ++ NewWorkers}};
+handle_call(sync, _From, State) ->
+    i_sync(State#state.workers),
+    {reply, ok, State};
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
@@ -144,3 +151,6 @@ code_change(_OldVsn, State, _Extra) ->
 
 i_multicast(Workers, Msg) ->
     lists:foreach(fun(Pid) -> epw:process(Pid, Msg) end, Workers).
+
+i_sync(Workers) ->
+    lists:foreach(fun(Pid) -> ok = epw:sync(Pid) end, Workers).

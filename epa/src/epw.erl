@@ -47,6 +47,7 @@
 -export([start_link/2]).
 -export([stop/1]).
 -export([process/2]).
+-export([sync/1]).
 
 -export([validate_module/1]).
 
@@ -85,6 +86,9 @@ validate_module(Module) ->
               false
     end.
 
+sync(Pid) ->
+    gen_server:call(Pid, sync).
+
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -112,6 +116,8 @@ init(State) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_call(sync, _From, State) ->
+    {reply, ok, State};
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
     UserArgs = Callback:terminate(normal,  State#state.user_args),

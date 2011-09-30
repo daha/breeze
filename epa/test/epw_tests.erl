@@ -102,6 +102,15 @@ validate_module_test() ->
     ?assertNot(epw:validate_module(not_valid_module)),
     ?assert(epw:validate_module(?MODULE)).
 
+sync_test() ->
+    meck:new(epw, [passthrough]),
+    Pid = start(),
+    ok = epw:sync(Pid),
+    ?assertEqual(1, meck_improvements:count_calls_wildcard(
+                   epw, handle_call, [sync | '_'])),
+    epw:stop(Pid),
+    catch meck:unload(epw).
+
 % TODO: rewrite without receive
 process_test() ->
     Ref = make_ref(),
