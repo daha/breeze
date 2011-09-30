@@ -43,7 +43,7 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([start_link/1]).
+-export([start_link/2]).
 -export([stop/1]).
 
 %% --------------------------------------------------------------------
@@ -62,8 +62,8 @@
 %% ====================================================================
 %% External functions
 %% ====================================================================
-start_link(ControllerName) ->
-    supervisor:start_link(?MODULE, [{controller_name, ControllerName}]).
+start_link(ControllerName, WorkerCallback) ->
+    supervisor:start_link(?MODULE, [ControllerName, WorkerCallback]).
 
 stop(Pid) ->
     true = exit(Pid, normal),
@@ -78,21 +78,15 @@ stop(Pid) ->
 %%          ignore                          |
 %%          {error, Reason}
 %% --------------------------------------------------------------------
-init(PropList) ->
-    case proplists:lookup(controller_name, PropList) of
-        {_, ControllerName} ->
-            Controller = {controller,
-                          {epc, start_link, [ControllerName]},
-                          permanent, 2000, worker, [epc]},
-            WorkerSup = {worker_sup,
-                         {epw_sup,start_link,[]},
-                          permanent, infinity, supervisor,[epw_sup]},
-            ChildSpecs = [Controller, WorkerSup],
-            {ok,{{one_for_all,0,1}, ChildSpecs}};
-        undefined ->
-            {error, no_controller_name}
-    end.
-
+init([ControllerName, WorkerCallback]) ->
+    Controller = {controller,
+                  {epc, start_link, [ControllerName]},
+                  permanent, 2000, worker, [epc]},
+    WorkerSup = {worker_sup,
+                 {epw_sup, start_link,[WorkerCallback]},
+                 permanent, infinity, supervisor, [epw_sup]},
+    ChildSpecs = [Controller, WorkerSup],
+    {ok,{{one_for_all,0,1}, ChildSpecs}}.
 
 %% ====================================================================
 %% Internal functions

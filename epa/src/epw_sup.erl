@@ -119,10 +119,8 @@ stop_children(SupervisorPid, Pids) ->
 
 start_child(SupervisorPid) ->
     case supervisor:start_child(SupervisorPid, []) of
-        {ok, WorkerPid} ->
-            {ok, WorkerPid};
         {ok, WorkerPid, _} ->
             {ok, WorkerPid};
-        {error, _} = Error ->
-            Error
+        Result ->
+            Result
     end.
