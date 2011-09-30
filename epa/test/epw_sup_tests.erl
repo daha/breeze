@@ -73,9 +73,16 @@ start_workers_test() ->
     ?assertEqual(Expected, supervisor:count_children(Pid)),
     stop(Pid).
 
+fail_to_start_worker_test() ->
+     Pid = start(invalid_module),
+     ?assertMatch({error, _Reason}, epw_sup:start_worker(Pid)),
+     stop(Pid).
+
 % internal
 start() ->
-    {ok, Pid} = epw_sup:start_link(epw_dummy),
+    start(epw_dummy).
+start(CallBackModule) ->
+    {ok, Pid} = epw_sup:start_link(CallBackModule),
     Pid.
 
 stop(Pid) ->

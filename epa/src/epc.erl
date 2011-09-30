@@ -45,7 +45,6 @@
 %% --------------------------------------------------------------------
 %% External exports
 -export([start_link/2]).
--export([stop/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -58,9 +57,6 @@
 %% ====================================================================
 start_link(Name, SupervisorPid) ->
     gen_server:start_link({local, Name}, ?MODULE, [SupervisorPid], []).
-
-stop(Pid) ->
-    gen_server:call(Pid, stop).
 
 %% ====================================================================
 %% Server functions
@@ -87,8 +83,6 @@ init([SupervisorPid]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_call(stop, _From, State) ->
-    {stop, normal, ok, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.

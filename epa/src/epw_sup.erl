@@ -96,19 +96,8 @@ start_workers(SupervisorPid, NumberOfChildren, Pids) ->
         {ok, Pid} ->
             start_workers(SupervisorPid, NumberOfChildren -1, [Pid | Pids]);
         {error, _} = Error ->
-            stop_children(SupervisorPid, Pids),
             Error
     end.
 
-stop_children(SupervisorPid, Pids) ->
-    lists:foreach(
-      fun(Pid) -> supervisor:terminate_child(SupervisorPid, Pid) end, Pids).
-
-
 start_child(SupervisorPid) ->
-    case supervisor:start_child(SupervisorPid, []) of
-        {ok, WorkerPid, _} ->
-            {ok, WorkerPid};
-        Result ->
-            Result
-    end.
+    supervisor:start_child(SupervisorPid, []).
