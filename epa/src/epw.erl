@@ -105,10 +105,7 @@ init(State) ->
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
     UserArgs = Callback:terminate(normal,  State#state.user_args),
-    {stop, normal, {ok, UserArgs}, State};
-handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+    {stop, normal, {ok, UserArgs}, State}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_cast/2
