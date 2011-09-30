@@ -1,5 +1,6 @@
-#Fri Sep 30 21:40:33 CEST 2011
+#Fri Sep 30 22:42:39 CEST 2011
 backend_version=R14B
+compiler/allOptions={d, 'TEST'}
 eclipse.preferences.version=1
 external_includes=
 external_modules=deps/meck/ebin
