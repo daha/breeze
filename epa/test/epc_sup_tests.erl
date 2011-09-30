@@ -46,7 +46,7 @@
 %%     {ok, Pid} = Res,
 %%     ?assert(is_process_alive(Pid)),
 %%     ok = epc_sup:stop(Pid).
-%% 
+%%
 %% start_epc_test() ->
 %%     Pid = start(),
 %%     Expected = [{specs,2},
@@ -56,7 +56,7 @@
 %%     ?assertEqual(Expected, supervisor:count_children(Pid)),
 %%     ?assertMatch(Pid0 when is_pid(Pid0), whereis(?CONTROLLER)),
 %%     stop(Pid).
-    
+
 % internal
 start() ->
     {ok, Pid} = epc_sup:start_link(?CONTROLLER),

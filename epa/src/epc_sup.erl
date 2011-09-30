@@ -79,7 +79,7 @@ stop(Pid) ->
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 init(PropList) ->
-    case proplists:lookup(controller_name, PropList) of 
+    case proplists:lookup(controller_name, PropList) of
         {_, ControllerName} ->
             Controller = {controller,
                           {epc, start_link, [ControllerName]},
@@ -87,7 +87,7 @@ init(PropList) ->
             WorkerSup = {worker_sup,
                          {epw_sup,start_link,[]},
                           permanent, infinity, supervisor,[epw_sup]},
-            ChildSpecs = [Controller, WorkerSup],        
+            ChildSpecs = [Controller, WorkerSup],
             {ok,{{one_for_all,0,1}, ChildSpecs}};
         undefined ->
             {error, no_controller_name}
