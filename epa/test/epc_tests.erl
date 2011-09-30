@@ -44,12 +44,25 @@ start_stop_test() ->
     ?assertNot(undefined == process_info(Pid)),
     epc_sup:stop(SupervisorPid).
 
+start_workers_test() ->
+    {Pid, SupervisorPid} = start(),
+    WorkerSupPid = get_worker_sup_pid(SupervisorPid),
+    ?assertEqual(ok, epc:start_workers(Pid, 2)),
+    ?assertMatch([_,_], supervisor:which_children(WorkerSupPid)),
+    ?assertEqual(ok, epc:start_workers(Pid, 1)),
+    ?assertMatch([_,_,_], supervisor:which_children(WorkerSupPid)).
+
 % Internal functions
 get_epc_pid(SupPid) ->
-    ControllerId = epc_sup:get_controller_id(),
+    get_supervised_pid(SupPid, epc_sup:get_controller_id()).
+
+get_worker_sup_pid(SupPid) ->
+    get_supervised_pid(SupPid, epc_sup:get_worker_sup_id()).
+
+get_supervised_pid(SupPid, SupId) ->
     Children = supervisor:which_children(SupPid),
-    {ControllerId, EpcPid, _, _} = proplists:lookup(ControllerId, Children),
-    EpcPid.
+    {SupId, Pid, _, _} = proplists:lookup(SupId, Children),
+    Pid.
 
 start() ->
     Name = test,

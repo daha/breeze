@@ -36,7 +36,6 @@
 -module(epc).
 
 -behaviour(gen_server).
--define(SERVER, ?MODULE).
 
 %% --------------------------------------------------------------------
 %% Include files
@@ -45,18 +44,21 @@
 %% --------------------------------------------------------------------
 %% External exports
 -export([start_link/2]).
+-export([start_workers/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {supervisor_pid,
-                worker_sup_pid}).
+-record(state, {sup_pid, workers = []}).
 
 %% ====================================================================
 %% External functions
 %% ====================================================================
 start_link(Name, SupervisorPid) ->
     gen_server:start_link({local, Name}, ?MODULE, [SupervisorPid], []).
+
+start_workers(Server, NumberOfWorkers) ->
+    gen_server:call(Server, {start_workers, NumberOfWorkers}).
 
 %% ====================================================================
 %% Server functions
@@ -71,7 +73,8 @@ start_link(Name, SupervisorPid) ->
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
 init([SupervisorPid]) ->
-    {ok, #state{supervisor_pid = SupervisorPid}, 0}.
+    self() ! {get_worker_sup, SupervisorPid},
+    {ok, #state{}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -83,9 +86,11 @@ init([SupervisorPid]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_call({start_workers, NumberOfWorkers}, _From, State) ->
+    {ok, NewWorkers} = epw_sup:start_workers(State#state.sup_pid, NumberOfWorkers),
+    {reply, ok, State#state{workers = State#state.workers ++ NewWorkers}};
 handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+    {reply, ok, State}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_cast/2
@@ -104,10 +109,9 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_info(timeout, #state{worker_sup_pid = undefined} = State) ->
-    SupervisorSup = State#state.supervisor_pid,
-    {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(SupervisorSup),
-    {noreply, State#state{worker_sup_pid = WorkerSupPid}};
+handle_info({get_worker_sup, SupervisorPid}, State) ->
+    {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(SupervisorPid),
+    {noreply, State#state{sup_pid = WorkerSupPid}};
 handle_info(_Info, State) ->
     {noreply, State}.
 

@@ -42,7 +42,11 @@
 -export([start_link/2]).
 -export([stop/1]).
 -export([get_worker_sup_pid/1]).
+
+-ifdef(TEST).
 -export([get_controller_id/0]).
+-export([get_worker_sup_id/0]).
+-endif.
 
 %% --------------------------------------------------------------------
 %% Internal exports
@@ -71,6 +75,9 @@ get_worker_sup_pid(Pid) ->
 get_controller_id() ->
     controller.
 
+get_worker_sup_id() ->
+    worker_sup.
+
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -81,12 +88,10 @@ get_controller_id() ->
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 init([ControllerName, WorkerCallback]) ->
-    SupPid = self(),
-    WorkerSup = {worker_sup,
-                 {epw_sup, start_link,[WorkerCallback]},
-                 permanent, infinity, supervisor, [epw_sup]},
+    WorkerSup =   {get_worker_sup_id(), {epw_sup, start_link,[WorkerCallback]},
+                   permanent, infinity, supervisor, [epw_sup]},
     Controller = {get_controller_id(),
-                  {epc, start_link, [ControllerName, SupPid]},
+                  {epc, start_link, [ControllerName, self()]},
                   permanent, 2000, worker, [epc]},
     ChildSpecs = [WorkerSup, Controller],
     {ok,{{one_for_all,0,1}, ChildSpecs}}.
