@@ -102,7 +102,7 @@ behaviour_info_test() ->
 execute_test() ->
     Ref = make_ref(),
     Pid = start(Ref),
-    Pid ! self(),
+    epw:process(Pid, self()),
     receive {execute, Ref} -> ok end,
     epw:stop(Pid).
 

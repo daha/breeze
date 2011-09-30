@@ -46,6 +46,7 @@
 -export([behaviour_info/1]).
 -export([start_link/2]).
 -export([stop/1]).
+-export([process/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -70,6 +71,9 @@ start_link(Callback, UserArgs) ->
 
 stop(Pid) ->
     gen_server:call(Pid, stop).
+
+process(Pid, Msg) ->
+    gen_server:cast(Pid, {msg, Msg}).
 
 %% ====================================================================
 %% Server functions
@@ -113,8 +117,10 @@ handle_call(_Request, _From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast(_Msg, State) ->
-    {noreply, State}.
+handle_cast({msg, Msg}, State) ->
+    Callback = State#state.callback,
+    UserArgs = Callback:execute(Msg, State#state.user_args),
+    {noreply, State#state{user_args = UserArgs}}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_info/2
@@ -123,11 +129,8 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-% TODO: Use some special pattern on messages to distinguish it from "random" messages.
-handle_info(Msg, State) ->
-    Callback = State#state.callback,
-    UserArgs = Callback:execute(Msg, State#state.user_args),
-    {noreply, State#state{user_args = UserArgs}}.
+handle_info(_Msg, State) ->
+    {noreply, State}.
 
 %% --------------------------------------------------------------------
 %% Function: terminate/2
