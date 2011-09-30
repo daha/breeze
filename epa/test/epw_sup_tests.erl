@@ -39,22 +39,43 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(CONTROLLER, test_controller).
+
 start_stop_test() ->
-    ControllerName = test_controller,
-    {ok, Pid} = epw_sup:start_link(ControllerName),
+    {ok, Pid} = epw_sup:start_link(),
     ?assert(is_process_alive(Pid)),
     ok = epw_sup:stop(Pid).
 
-start_epc_test() ->
-    ControllerName = test_controller,
-    {ok, Pid} = epw_sup:start_link(ControllerName),
+start_worker_test() ->
+    Pid = start(),
+
+    ?assertMatch({ok, _Pid}, epw_sup:start_worker(Pid, epw_dummy)),
+    
     Expected = [{specs,1},
                 {active,1},
                 {supervisors,0},
                 {workers,1}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
-    ?assertMatch(Pid0 when is_pid(Pid0), whereis(ControllerName)),
-    epw_sup:stop(Pid).
+    stop(Pid).
 
+
+start_workers_test() ->
+    Pid = start(),
+    ?assertMatch({ok, [_Pid1, _Pid2]}, 
+                 epw_sup:start_workers(Pid, epw_dummy, 2)),
+    Expected = [{specs,1},
+                {active,2},
+                {supervisors,0},
+                {workers,2}],
+    ?assertEqual(Expected, supervisor:count_children(Pid)),
+    stop(Pid).
+    
+% internal
+start() ->
+    {ok, Pid} = epw_sup:start_link(?CONTROLLER),
+    Pid.
+
+stop(Pid) ->
+   epw_sup:stop(Pid).
 
 -endif.

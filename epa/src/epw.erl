@@ -61,7 +61,7 @@
 %% ====================================================================
 behaviour_info(callbacks) ->
     [{init,1},
-     {execute, 2},
+     {process, 2},
      {terminate, 2}];
 behaviour_info(_Other) ->
     undefined.
@@ -116,7 +116,7 @@ handle_call(stop, _From, State) ->
 %% --------------------------------------------------------------------
 handle_cast({msg, Msg}, State) ->
     Callback = State#state.callback,
-    UserArgs = Callback:execute(Msg, State#state.user_args),
+    UserArgs = Callback:process(Msg, State#state.user_args),
     {noreply, State#state{user_args = UserArgs}}.
 
 %% --------------------------------------------------------------------

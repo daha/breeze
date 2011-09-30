@@ -35,14 +35,14 @@
 %%====================================================================
 -module(epw_dummy).
 -behaviour(epw).
--export([init/1, execute/2, terminate/2]).
+-export([init/1, process/2, terminate/2]).
 
 %% API Functions
 
 init(Args) ->
     {ok, Args}.
 
-execute(_Msg, State) ->
+process(_Msg, State) ->
     {ok, State}.
 
 terminate(_Reason, State) ->

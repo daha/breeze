@@ -33,91 +33,36 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
--module(epw_tests).
+-module(epc_sup_tests).
 
 -ifdef(TEST).
 
 -include_lib("eunit/include/eunit.hrl").
 
--behaviour(epw).
--export([init/1, process/2, terminate/2]).
+-define(CONTROLLER, test_controller).
 
-% callback methods
-init(Pid) when is_pid(Pid) ->
-    Pid ! init,
-    {ok, []};
-init(Args) ->
-    {ok, Args}.
-
-process(Pid, State) when is_pid(Pid) ->
-    Pid ! {process, State},
-    {ok, State};
-process(_Data, State) ->
-    {ok, State}.
-
-terminate(_Reason, List) when is_list(List) ->
-    case proplists:get_value(terminate, List) of
-        Pid when is_pid(Pid) ->
-            Pid ! {stopped, List},
-            terminated;
-        undefined ->
-            not_the_state
-    end;
-terminate(_Reason, State) ->
-    State.
-
-% Tests
-start_stop_test() ->
-    {ok, Pid} = epw:start_link(?MODULE, []),
-    ?assertNot(undefined == process_info(Pid)),
-    {ok, _} = epw:stop(Pid).
-
-% TODO: rewrite without receive
-init_test() ->
-    Pid = start(),
-    receive init -> ok end,
-    epw:stop(Pid).
-
-stop_should_return_the_state_test() ->
-    Ref = make_ref(),
-    Pid = start(Ref),
-    ?assertEqual({ok, Ref}, epw:stop(Pid)).
-
-% TODO: rewrite without receive
-stop_should_call_terminate_test() ->
-    Args = [{terminate, self()}],
-    Pid = start(Args),
-    ?assertEqual({ok, terminated}, epw:stop(Pid)),
-    receive {stopped, Args} -> ok end.
-
-behaviour_info_test() ->
-    Expected = [{init,1},
-                {process, 2},
-                {terminate,2}],
-    Actual = epw:behaviour_info(callbacks),
-    ?assertEqual(Expected, Actual),
-    ?assertEqual(undefined, epw:behaviour_info(foo)).
-
-% TODO: rewrite without receive
-process_test() ->
-    Ref = make_ref(),
-    Pid = start(Ref),
-    epw:process(Pid, self()),
-    receive {process, Ref} -> ok end,
-    epw:stop(Pid).
-
-% Helper functions
-flush() ->
-    receive _Any -> flush()
-    after 0 -> true
-    end.
-
+%% start_stop_test() ->
+%%     {ok, Pid} = epc_sup:start_link(?CONTROLLER),
+%%     {ok, Pid} = Res,
+%%     ?assert(is_process_alive(Pid)),
+%%     ok = epc_sup:stop(Pid).
+%% 
+%% start_epc_test() ->
+%%     Pid = start(),
+%%     Expected = [{specs,2},
+%%                 {active,2},
+%%                 {supervisors,1},
+%%                 {workers,1}],
+%%     ?assertEqual(Expected, supervisor:count_children(Pid)),
+%%     ?assertMatch(Pid0 when is_pid(Pid0), whereis(?CONTROLLER)),
+%%     stop(Pid).
+    
+% internal
 start() ->
-    start(self()).
-
-start(UserArgs) ->
-    flush(),
-    {ok, Pid} = epw:start_link(?MODULE, UserArgs),
+    {ok, Pid} = epc_sup:start_link(?CONTROLLER),
     Pid.
+
+stop(Pid) ->
+   epc_sup:stop(Pid).
 
 -endif.
