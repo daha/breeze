@@ -36,7 +36,6 @@
 -module(epw). % event processing worker
 
 -behaviour(gen_server).
--define(SERVER, ?MODULE).
 
 %% --------------------------------------------------------------------
 %% Include files

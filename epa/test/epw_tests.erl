@@ -94,8 +94,9 @@ behaviour_info_test() ->
     Expected = [{init,1},
                 {execute, 2},
                 {terminate,2}],
-    Actual = epw_behaviour:behaviour_info(callbacks),
-    ?assertEqual(Expected, Actual).
+    Actual = epw:behaviour_info(callbacks),
+    ?assertEqual(Expected, Actual),
+    ?assertEqual(undefined, epw:behaviour_info(foo)).
 
 % TODO: rewrite without receive
 execute_test() ->
