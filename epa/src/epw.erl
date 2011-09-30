@@ -47,6 +47,7 @@
 -export([start_link/2]).
 -export([stop/1]).
 -export([process/2]).
+-export([validate_module/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -74,6 +75,14 @@ stop(Pid) ->
 
 process(Pid, Msg) ->
     gen_server:cast(Pid, {msg, Msg}).
+
+validate_module(Module) ->
+    try Exports = Module:module_info(exports),
+        Missing = behaviour_info(callbacks) -- Exports,
+        [] == Missing
+    catch _:_ ->
+              false
+    end.
 
 %% ====================================================================
 %% Server functions

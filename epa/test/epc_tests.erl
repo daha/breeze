@@ -52,6 +52,12 @@ start_workers_test() ->
     ?assertEqual(ok, epc:start_workers(Pid, 1)),
     ?assertMatch([_,_,_], supervisor:which_children(WorkerSupPid)).
 
+so_not_start_with_invalid_callback_module_test() ->
+    CallbackModule = invalid_callback_module,
+    ?assertEqual({error, {invalid_callback_module, CallbackModule}},
+        epc_sup:start_link(epc_name, invalid_callback_module)).
+
+
 % Internal functions
 get_epc_pid(SupPid) ->
     get_supervised_pid(SupPid, epc_sup:get_controller_id()).
@@ -65,8 +71,7 @@ get_supervised_pid(SupPid, SupId) ->
     Pid.
 
 start() ->
-    Name = test,
-    {ok, SupervisorPid} = epc_sup:start_link(Name, epw_dummy),
+    {ok, SupervisorPid} = epc_sup:start_link(epc_name, epw_dummy),
     Pid = get_epc_pid(SupervisorPid),
     {Pid, SupervisorPid}.
 

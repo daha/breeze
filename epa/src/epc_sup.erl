@@ -61,7 +61,12 @@
 %% External functions
 %% ====================================================================
 start_link(ControllerName, WorkerCallback) ->
-    supervisor:start_link(?MODULE, [ControllerName, WorkerCallback]).
+    case epw:validate_module(WorkerCallback) of
+        true ->
+            supervisor:start_link(?MODULE, [ControllerName, WorkerCallback]);
+        false ->
+            {error, {invalid_callback_module, WorkerCallback}}
+    end.
 
 stop(Pid) ->
     true = exit(Pid, normal),

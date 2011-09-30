@@ -98,6 +98,10 @@ behaviour_info_test() ->
     ?assertEqual(Expected, Actual),
     ?assertEqual(undefined, epw:behaviour_info(foo)).
 
+validate_module_test() ->
+    ?assertNot(epw:validate_module(not_valid_module)),
+    ?assert(epw:validate_module(?MODULE)).
+
 % TODO: rewrite without receive
 process_test() ->
     Ref = make_ref(),
