@@ -1,4 +1,3 @@
-* Add functionality to epc to start new workers.
 * Route messages in epc to workers for
   * Random
   * Hash on key X
