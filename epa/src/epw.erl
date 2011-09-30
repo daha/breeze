@@ -47,6 +47,7 @@
 -export([start_link/2]).
 -export([stop/1]).
 -export([process/2]).
+
 -export([validate_module/1]).
 
 %% gen_server callbacks
@@ -125,7 +126,7 @@ handle_call(stop, _From, State) ->
 %% --------------------------------------------------------------------
 handle_cast({msg, Msg}, State) ->
     Callback = State#state.callback,
-    UserArgs = Callback:process(Msg, State#state.user_args),
+    {ok, UserArgs} = Callback:process(Msg, State#state.user_args),
     {noreply, State#state{user_args = UserArgs}}.
 
 %% --------------------------------------------------------------------

@@ -50,15 +50,43 @@ start_workers_test() ->
     ?assertEqual(ok, epc:start_workers(Pid, 2)),
     ?assertMatch([_,_], supervisor:which_children(WorkerSupPid)),
     ?assertEqual(ok, epc:start_workers(Pid, 1)),
-    ?assertMatch([_,_,_], supervisor:which_children(WorkerSupPid)).
+    ?assertMatch([_,_,_], supervisor:which_children(WorkerSupPid)),
+    epc_sup:stop(SupervisorPid).
 
 so_not_start_with_invalid_callback_module_test() ->
     CallbackModule = invalid_callback_module,
     ?assertEqual({error, {invalid_callback_module, CallbackModule}},
         epc_sup:start_link(epc_name, invalid_callback_module)).
 
+tests_with_mock_test_() ->
+    {foreach, fun setup/0, fun teardown/1,
+      [{with, [T]} || T <- [fun multicast_/1]]}.
+
+multicast_({Pid, _SupervisorPid, MockModule}) ->
+    Msg = msg,
+    ok = epc:start_workers(Pid, 2),
+    epc:multicast(Pid, Msg),
+    ?assert(meck:validate(MockModule)),
+    %% TODO: improve the testing, this is asynchronous
+    wait_until(2, fun() ->
+                          meck_improvements:count_calls(MockModule, process, [Msg, []])
+               end).
 
 % Internal functions
+setup() ->
+    MockModule = epw_mock,
+    ok = meck:new(MockModule),
+    meck:expect(MockModule, init, fun([]) -> {ok, []} end),
+    meck:expect(MockModule, process, fun(_Msg, State) -> {ok, State} end),
+    meck:expect(MockModule, terminate, fun(_, State) -> State end),
+    {Pid, SupervisorPid} = start(MockModule),
+    {Pid, SupervisorPid, MockModule}.
+
+teardown({_Pid, SupervisorPid, MockModule}) ->
+    epc_sup:stop(SupervisorPid),
+    catch meck:unload(MockModule).
+
+
 get_epc_pid(SupPid) ->
     get_supervised_pid(SupPid, epc_sup:get_controller_id()).
 
@@ -71,9 +99,18 @@ get_supervised_pid(SupPid, SupId) ->
     Pid.
 
 start() ->
-    {ok, SupervisorPid} = epc_sup:start_link(epc_name, epw_dummy),
+    start(epw_dummy).
+start(CallbackModule) ->
+    {ok, SupervisorPid} = epc_sup:start_link(epc_name, CallbackModule),
     Pid = get_epc_pid(SupervisorPid),
     {Pid, SupervisorPid}.
 
+wait_until(Expected, EvalFun) ->
+    case EvalFun() of
+        Expected ->
+            ok;
+        _ ->
+            wait_until(Expected, EvalFun)
+    end.
 
 -endif.

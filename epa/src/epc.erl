@@ -45,6 +45,7 @@
 %% External exports
 -export([start_link/2]).
 -export([start_workers/2]).
+-export([multicast/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -59,6 +60,9 @@ start_link(Name, SupervisorPid) ->
 
 start_workers(Server, NumberOfWorkers) ->
     gen_server:call(Server, {start_workers, NumberOfWorkers}).
+
+multicast(Server,  Msg) ->
+    gen_server:cast(Server, {msg, all, Msg}).
 
 %% ====================================================================
 %% Server functions
@@ -99,6 +103,9 @@ handle_call(_Request, _From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_cast({msg, all, Msg}, State) ->
+    i_multicast(State#state.workers, Msg),
+    {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -135,3 +142,5 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% --------------------------------------------------------------------
 
+i_multicast(Workers, Msg) ->
+    lists:foreach(fun(Pid) -> epw:process(Pid, Msg) end, Workers).
