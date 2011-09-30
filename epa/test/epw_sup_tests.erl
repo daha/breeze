@@ -39,18 +39,21 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(CONTROLLER, test_controller).
-
 start_stop_test() ->
-    {ok, Pid} = epw_sup:start_link(),
+    {ok, Pid} = epw_sup:start_link(epw_dummy),
     ?assert(is_process_alive(Pid)),
+    Expected = [{specs,1},
+                {active,0},
+                {supervisors,0},
+                {workers,0}],
+    ?assertEqual(Expected, supervisor:count_children(Pid)),
     ok = epw_sup:stop(Pid).
 
 start_worker_test() ->
     Pid = start(),
 
-    ?assertMatch({ok, _Pid}, epw_sup:start_worker(Pid, epw_dummy)),
-    
+    ?assertMatch({ok, _Pid}, epw_sup:start_worker(Pid)),
+
     Expected = [{specs,1},
                 {active,1},
                 {supervisors,0},
@@ -61,18 +64,18 @@ start_worker_test() ->
 
 start_workers_test() ->
     Pid = start(),
-    ?assertMatch({ok, [_Pid1, _Pid2]}, 
-                 epw_sup:start_workers(Pid, epw_dummy, 2)),
+    ?assertMatch({ok, [_Pid1, _Pid2]},
+                 epw_sup:start_workers(Pid, 2)),
     Expected = [{specs,1},
                 {active,2},
                 {supervisors,0},
                 {workers,2}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
     stop(Pid).
-    
+
 % internal
 start() ->
-    {ok, Pid} = epw_sup:start_link(?CONTROLLER),
+    {ok, Pid} = epw_sup:start_link(epw_dummy),
     Pid.
 
 stop(Pid) ->

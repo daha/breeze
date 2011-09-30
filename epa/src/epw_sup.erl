@@ -43,10 +43,10 @@
 %% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
--export([start_link/0]).
+-export([start_link/1]).
 -export([stop/1]).
--export([start_worker/2]).
--export([start_workers/3]).
+-export([start_worker/1]).
+-export([start_workers/2]).
 
 %% --------------------------------------------------------------------
 %% Internal exports
@@ -65,23 +65,23 @@
 %% ====================================================================
 %% External functions
 %% ====================================================================
-start_link() ->
-    supervisor:start_link(?MODULE, []).
+start_link(Module) ->
+    supervisor:start_link(?MODULE, [Module]).
 
 stop(Pid) ->
     true = exit(Pid, normal),
     ok.
 
-start_worker(Pid, Module) ->
-   case start_workers(Pid, Module, 1) of 
+start_worker(Pid) ->
+   case start_workers(Pid, 1) of
        {ok, [WorkerPid]} ->
            {ok, WorkerPid};
        Error ->
            Error
    end.
 
-start_workers(Pid, Module, NumberOfChildren) ->
-    start_workers(Pid, Module, NumberOfChildren, []).
+start_workers(Pid, NumberOfChildren) ->
+    start_workers(Pid, NumberOfChildren, []).
 
 
 %% ====================================================================
@@ -93,19 +93,20 @@ start_workers(Pid, Module, NumberOfChildren) ->
 %%          ignore                          |
 %%          {error, Reason}
 %% --------------------------------------------------------------------
-init([]) ->
-    {ok,{{simple_one_for_one,0,1}, []}}.
+init([Module]) ->
+    ChildSpec = {worker, {epw, start_link, [Module, []]},
+                 transient, 5000, worker, [epw, Module]},
+    {ok,{{simple_one_for_one,0,1}, [ChildSpec]}}.
 
 %% ====================================================================
 %% Internal functions
 %% ====================================================================
-start_workers(_SupervisorPid, _Module, _NumberOfChildren = 0, Pids) ->
+start_workers(_SupervisorPid, _NumberOfChildren = 0, Pids) ->
     {ok, Pids};
-start_workers(SupervisorPid, Module, NumberOfChildren, Pids) ->
-    case check_start_child(SupervisorPid, make_child_spec(Module)) of 
+start_workers(SupervisorPid, NumberOfChildren, Pids) ->
+    case start_child(SupervisorPid) of
         {ok, Pid} ->
-            start_workers(SupervisorPid, Module, NumberOfChildren -1, 
-                          [Pid | Pids]);
+            start_workers(SupervisorPid, NumberOfChildren -1, [Pid | Pids]);
         {error, _} = Error ->
             stop_children(SupervisorPid, Pids),
             Error
@@ -115,28 +116,13 @@ stop_children(SupervisorPid, Pids) ->
     lists:foreach(
       fun(Pid) -> supervisor:terminate_child(SupervisorPid, Pid) end, Pids).
 
-    
 
-
-check_start_child(SupervisorPid, ChildSpec) ->
-    case supervisor:check_childspecs([ChildSpec]) of
-        ok ->
-          start_child(SupervisorPid, ChildSpec);
-        Error ->
-            Error
-    end.
-
-start_child(SupervisorPid, ChildSpec) ->
-    case supervisor:start_child(SupervisorPid, ChildSpec) of
-        {ok, WorkerPid} -> 
+start_child(SupervisorPid) ->
+    case supervisor:start_child(SupervisorPid, []) of
+        {ok, WorkerPid} ->
             {ok, WorkerPid};
         {ok, WorkerPid, _} ->
             {ok, WorkerPid};
         {error, _} = Error ->
             Error
     end.
-
-make_child_spec(Module) ->
-    {make_ref(), {epw, start_link, [Module, []]},
-     transient, 5000, worker, [epw, Module]}.
-
