@@ -4,3 +4,4 @@ ebin/
 .DS_Store
 logs/
 *.beam
+deps/

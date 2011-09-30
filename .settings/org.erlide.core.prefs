@@ -1,7 +1,7 @@
+#Fri Sep 30 21:40:33 CEST 2011
 backend_version=R14B
 eclipse.preferences.version=1
 external_includes=
-external_modules=
-include_dirs=include;
-output_dir=ebin
-source_dirs=src;
+external_modules=deps/meck/ebin
+output_dir=epa/ebin
+source_dirs=epa/test;epa/src
