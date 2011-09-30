@@ -44,19 +44,20 @@
 
 %% --------------------------------------------------------------------
 %% External exports
--export([start_link/1]).
+-export([start_link/2]).
 -export([stop/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--record(state, {}).
+-record(state, {supervisor_pid,
+                worker_sup_pid}).
 
 %% ====================================================================
 %% External functions
 %% ====================================================================
-start_link(Name) ->
-    gen_server:start_link({local, Name}, ?MODULE, [], []).
+start_link(Name, SupervisorPid) ->
+    gen_server:start_link({local, Name}, ?MODULE, [SupervisorPid], []).
 
 stop(Pid) ->
     gen_server:call(Pid, stop).
@@ -73,8 +74,8 @@ stop(Pid) ->
 %%          ignore               |
 %%          {stop, Reason}
 %% --------------------------------------------------------------------
-init([]) ->
-    {ok, #state{}}.
+init([SupervisorPid]) ->
+    {ok, #state{supervisor_pid = SupervisorPid}, 0}.
 
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -109,6 +110,10 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
+handle_info(timeout, #state{worker_sup_pid = undefined} = State) ->
+    SupervisorSup = State#state.supervisor_pid,
+    {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(SupervisorSup),
+    {noreply, State#state{worker_sup_pid = WorkerSupPid}};
 handle_info(_Info, State) ->
     {noreply, State}.
 

@@ -56,6 +56,13 @@ start_epc_test() ->
     ?assertMatch(Pid0 when is_pid(Pid0), whereis(?CONTROLLER)),
     stop(Pid).
 
+get_worker_sup_pid_test() ->
+    Pid = start(),
+    {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(Pid),
+    % Ugly way of verifying this is a supervisor
+    ?assertEqual([], supervisor:which_children(WorkerSupPid)),
+    stop(Pid).
+
 % internal
 start() ->
     {ok, Pid} = epc_sup:start_link(?CONTROLLER, epw_dummy),

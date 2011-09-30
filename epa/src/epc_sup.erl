@@ -37,14 +37,12 @@
 
 -behaviour(supervisor).
 %% --------------------------------------------------------------------
-%% Include files
-%% --------------------------------------------------------------------
-
-%% --------------------------------------------------------------------
 %% External exports
 %% --------------------------------------------------------------------
 -export([start_link/2]).
 -export([stop/1]).
+-export([get_worker_sup_pid/1]).
+-export([get_controller_id/0]).
 
 %% --------------------------------------------------------------------
 %% Internal exports
@@ -53,10 +51,6 @@
 
 %% --------------------------------------------------------------------
 %% Macros
-%% --------------------------------------------------------------------
-
-%% --------------------------------------------------------------------
-%% Records
 %% --------------------------------------------------------------------
 
 %% ====================================================================
@@ -69,6 +63,14 @@ stop(Pid) ->
     true = exit(Pid, normal),
     ok.
 
+get_worker_sup_pid(Pid) ->
+    Children = supervisor:which_children(Pid),
+    {worker_sup, WorkerSupPid, _, _} = proplists:lookup(worker_sup, Children),
+    {ok, WorkerSupPid}.
+
+get_controller_id() ->
+    controller.
+
 %% ====================================================================
 %% Server functions
 %% ====================================================================
@@ -79,13 +81,14 @@ stop(Pid) ->
 %%          {error, Reason}
 %% --------------------------------------------------------------------
 init([ControllerName, WorkerCallback]) ->
-    Controller = {controller,
-                  {epc, start_link, [ControllerName]},
-                  permanent, 2000, worker, [epc]},
+    SupPid = self(),
     WorkerSup = {worker_sup,
                  {epw_sup, start_link,[WorkerCallback]},
                  permanent, infinity, supervisor, [epw_sup]},
-    ChildSpecs = [Controller, WorkerSup],
+    Controller = {get_controller_id(),
+                  {epc, start_link, [ControllerName, SupPid]},
+                  permanent, 2000, worker, [epc]},
+    ChildSpecs = [WorkerSup, Controller],
     {ok,{{one_for_all,0,1}, ChildSpecs}}.
 
 %% ====================================================================

@@ -40,9 +40,22 @@
 -include_lib("eunit/include/eunit.hrl").
 
 start_stop_test() ->
-    Name = test,
-    {ok, Pid} = epc:start_link(Name),
+    {Pid, SupervisorPid} = start(),
     ?assertNot(undefined == process_info(Pid)),
-    ok = epc:stop(Pid).
+    epc_sup:stop(SupervisorPid).
+
+% Internal functions
+get_epc_pid(SupPid) ->
+    ControllerId = epc_sup:get_controller_id(),
+    Children = supervisor:which_children(SupPid),
+    {ControllerId, EpcPid, _, _} = proplists:lookup(ControllerId, Children),
+    EpcPid.
+
+start() ->
+    Name = test,
+    {ok, SupervisorPid} = epc_sup:start_link(Name, epw_dummy),
+    Pid = get_epc_pid(SupervisorPid),
+    {Pid, SupervisorPid}.
+
 
 -endif.
