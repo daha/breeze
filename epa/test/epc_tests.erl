@@ -60,35 +60,53 @@ t_multicast([Pid, SupervisorPid | _]) ->
     epc:multicast(Pid, Msg), % async
     epc:sync(Pid), % to make sure epc has processed the message
     assert_workers_are_called(SupervisorPid, process, [Msg]),
-    ok. % So the test shows in the stack if the assert above fail
+    ok.
 
 t_sync([Pid, SupervisorPid | _]) ->
     ok = epc:start_workers(Pid, 2),
     ?assertEqual(ok, epc:sync(Pid)),
     assert_workers_are_called(SupervisorPid, sync),
-    ok. % So the test shows in the stack if the assert above fail
+    ok.
 
 so_not_start_with_invalid_callback_module_test() ->
     CallbackModule = invalid_callback_module,
     ?assertEqual({error, {invalid_callback_module, CallbackModule}},
         epc_sup:start_link(epc_name, invalid_callback_module)).
 
-% Internal functions
+% Assert functions
+assert_workers_are_called(SupervisorPid, Func) ->
+    assert_workers_are_called(SupervisorPid, Func, []).
+assert_workers_are_called(SupervisorPid, Func, ExtraArgs) ->
+    lists:foreach(fun(Pid) ->
+			  ?assert(meck:called(epw, Func, [Pid] ++ ExtraArgs))
+		  end, get_workers(SupervisorPid)).
+
+% Setup/teardown functions
 setup() ->
-    MockModule = epw_mock,
     meck:new(epw, [passthrough]),
+    MockModule = create_epw_behaviour_stub(),
+    {Pid, SupervisorPid} = start(MockModule),
+    [Pid, SupervisorPid, MockModule].
+
+create_epw_behaviour_stub() ->
+    MockModule = epw_mock,
     ok = meck:new(MockModule),
     meck:expect(MockModule, init, fun([]) -> {ok, []} end),
     meck:expect(MockModule, process, fun(_Msg, State) -> {ok, State} end),
     meck:expect(MockModule, terminate, fun(_, State) -> State end),
-    {Pid, SupervisorPid} = start(MockModule),
-    [Pid, SupervisorPid, MockModule].
+    MockModule.
+
+start(CallbackModule) ->
+    {ok, SupervisorPid} = epc_sup:start_link(epc_name, CallbackModule),
+    Pid = get_epc_pid(SupervisorPid),
+    {Pid, SupervisorPid}.
 
 teardown([_Pid, SupervisorPid, MockModule]) ->
     epc_sup:stop(SupervisorPid),
     ok = meck:unload(MockModule),
     ok = meck:unload(epw).
 
+% Getters
 get_epc_pid(SupPid) ->
     get_supervised_pid(SupPid, epc_sup:get_controller_id()).
 
@@ -104,16 +122,4 @@ get_workers(SupPid) ->
     WorkerSupPid = get_worker_sup_pid(SupPid),
     Children = supervisor:which_children(WorkerSupPid),
     lists:map(fun(Child) -> element(2, Child) end, Children).
-
-start(CallbackModule) ->
-    {ok, SupervisorPid} = epc_sup:start_link(epc_name, CallbackModule),
-    Pid = get_epc_pid(SupervisorPid),
-    {Pid, SupervisorPid}.
-
-assert_workers_are_called(SupervisorPid, Func) ->
-    assert_workers_are_called(SupervisorPid, Func, []).
-assert_workers_are_called(SupervisorPid, Func, ExtraArgs) ->
-    lists:foreach(fun(Pid) ->
-			  ?assert(meck:called(epw, Func, [Pid] ++ ExtraArgs))
-		  end, get_workers(SupervisorPid)).
 
