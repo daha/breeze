@@ -33,6 +33,8 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
+%% Description: Addons to meck
+
 -module(meck_improvements).
 
 %% Exported Functions

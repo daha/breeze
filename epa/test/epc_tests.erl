@@ -71,7 +71,6 @@ t_sync([Pid, SupervisorPid | _]) ->
     assert_workers_are_called(SupervisorPid, sync),
     ok.
 
-
 t_randomcast([Pid, SupervisorPid | _]) ->
     meck:new(random, [passthrough, unstick]),
     ok = epc:start_workers(Pid, 2),

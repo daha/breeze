@@ -33,7 +33,9 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
--module(epw). % event processing worker
+%% Description: Event processing worker
+
+-module(epw).
 
 -behaviour(gen_server).
 

@@ -33,6 +33,9 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
+%% Description: Event processing controller, manages the workers and 
+%%              passed data to them.
+
 -module(epc).
 
 -behaviour(gen_server).
