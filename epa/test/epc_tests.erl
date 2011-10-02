@@ -43,7 +43,9 @@ tests_with_mock_test_() ->
                             fun t_start_workers/1,
                             fun t_multicast/1,
                             fun t_sync/1,
-			    fun t_randomcast/1]]}.
+                            fun t_randomcast/1,
+                            fun t_keyhashcast/1,
+                            fun t_keyhashcast_error/1]]}.
 
 t_start_stop([Pid | _]) ->
     ?assertNot(undefined == process_info(Pid)).
@@ -75,37 +77,33 @@ t_randomcast([Pid, SupervisorPid | _]) ->
     ok = epc:start_workers(Pid, 2),
     meck:sequence(random, uniform, 1, [1, 1, 2]),
     Workers = get_workers(SupervisorPid),
-    epc:randomcast(Pid, Msg = msg),
-    epc:sync(Pid),
+    ok = epc:randomcast(Pid, Msg = msg),
+    ok = epc:sync(Pid),
 
-    OrderedWorkers =
-        case meck_improvements:count_calls(epw, process, [hd(Workers), Msg]) of
-            1 ->
-                Workers;
-            _ -> % Reverse the order
-                lists:reverse(Workers)
-        end,
-    assert_workers_process(OrderedWorkers, [1, 0], Msg),
+    OrderedWorkers = order_workers(Workers, Msg),
+    assert_workers_random_and_process(OrderedWorkers, [1, 0], Msg),
     randomcast_and_assert(Pid, Msg, OrderedWorkers, [2, 0]),
     randomcast_and_assert(Pid, Msg, OrderedWorkers, [2, 1]),
-    meck:unload(random),
+    meck:unload(random).
+
+t_keyhashcast([Pid, SupervisorPid | _]) ->
+    ok = epc:start_workers(Pid, 2),
+    Workers = get_workers(SupervisorPid),
+    Msg1 = {foo, 1},
+    Msg2 = {bar, 2},
+    ok = epc:keyhashcast(Pid, Msg1),
+    ok = epc:sync(Pid),
+    OrderedWorkers = order_workers(Workers, Msg1),
+    assert_workers_process_function_is_called(OrderedWorkers, [1, 0], Msg1),
+
+    keyhashcast_and_assert(Pid, Msg1, OrderedWorkers, [2, 0]),
+    keyhashcast_and_assert(Pid, Msg2, OrderedWorkers, [0, 1]),
     ok.
 
-randomcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
-    epc:randomcast(Pid, Msg),
-    epc:sync(Pid),
-    assert_workers_process(OrderedWorkers, ExpectedList, Msg).
-
-assert_workers_process(Workers, ExpectedList, Msg) ->
-    NumberOfWorkers = length(Workers),
-    ExpectedRandomUniformCalls = lists:sum(ExpectedList),
-    ?assertEqual(ExpectedRandomUniformCalls, meck_improvements:count_calls(
-                   random, uniform, [NumberOfWorkers])),
-    lists:foreach(
-      fun({Worker, Expected}) ->
-              ?assertEqual(Expected, meck_improvements:count_calls(
-                             epw, process, [Worker, Msg]))
-      end, lists:zip(Workers, ExpectedList)).
+t_keyhashcast_error([Pid | _]) ->
+    Msg = foo,
+    ?assertEqual({error, {not_a_valid_message, Msg}},
+                 epc:keyhashcast(Pid, Msg)).
 
 should_seed_at_startuo_test() ->
     meck:new(random, [passthrough, unstick]),
@@ -127,6 +125,31 @@ assert_workers_are_called(SupervisorPid, Func, ExtraArgs) ->
     lists:foreach(fun(Pid) ->
 			  ?assert(meck:called(epw, Func, [Pid] ++ ExtraArgs))
 		  end, get_workers(SupervisorPid)).
+
+randomcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
+    ok = epc:randomcast(Pid, Msg),
+    ok = epc:sync(Pid),
+    assert_workers_random_and_process(OrderedWorkers, ExpectedList, Msg).
+
+keyhashcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
+    ok = epc:keyhashcast(Pid, Msg),
+    ok = epc:sync(Pid),
+    assert_workers_process_function_is_called(OrderedWorkers, ExpectedList, Msg).
+
+
+assert_workers_process_function_is_called(Workers, ExpectedList, Msg) ->
+    lists:foreach(
+      fun({Worker, Expected}) ->
+              ?assertEqual(Expected, meck_improvements:count_calls(
+                             epw, process, [Worker, Msg]))
+      end, lists:zip(Workers, ExpectedList)).
+
+assert_workers_random_and_process(Workers, ExpectedList, Msg) ->
+    NumberOfWorkers = length(Workers),
+    ExpectedRandomUniformCalls = lists:sum(ExpectedList),
+    ?assertEqual(ExpectedRandomUniformCalls, meck_improvements:count_calls(
+                   random, uniform, [NumberOfWorkers])),
+    assert_workers_process_function_is_called(Workers, ExpectedList, Msg).
 
 % Setup/teardown functions
 setup() ->
@@ -169,4 +192,16 @@ get_workers(SupPid) ->
     WorkerSupPid = get_worker_sup_pid(SupPid),
     Children = supervisor:which_children(WorkerSupPid),
     lists:map(fun(Child) -> element(2, Child) end, Children).
+
+
+% Other help methods
+
+% Put the worker that receive the first process call first in the list
+order_workers(Workers, Msg) ->
+    case meck_improvements:count_calls(epw, process, [hd(Workers), Msg]) of
+        1 ->
+            Workers;
+        _ -> % Reverse the order
+            lists:reverse(Workers)
+    end.
 
