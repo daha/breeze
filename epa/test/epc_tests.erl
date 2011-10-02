@@ -42,7 +42,8 @@ tests_with_mock_test_() ->
       [{with, [T]} || T <- [fun t_start_stop/1,
                             fun t_start_workers/1,
                             fun t_multicast/1,
-                            fun t_sync/1]]}.
+                            fun t_sync/1,
+			    fun t_randomcast/1]]}.
 
 t_start_stop([Pid | _]) ->
     ?assertNot(undefined == process_info(Pid)).
@@ -57,8 +58,8 @@ t_start_workers([Pid, SupervisorPid | _]) ->
 t_multicast([Pid, SupervisorPid | _]) ->
     Msg = msg,
     ok = epc:start_workers(Pid, 2),
-    epc:multicast(Pid, Msg), % async
-    epc:sync(Pid), % to make sure epc has processed the message
+    epc:multicast(Pid, Msg),
+    epc:sync(Pid),
     assert_workers_are_called(SupervisorPid, process, [Msg]),
     ok.
 
@@ -68,7 +69,53 @@ t_sync([Pid, SupervisorPid | _]) ->
     assert_workers_are_called(SupervisorPid, sync),
     ok.
 
-so_not_start_with_invalid_callback_module_test() ->
+
+t_randomcast([Pid, SupervisorPid | _]) ->
+    meck:new(random, [passthrough, unstick]),
+    ok = epc:start_workers(Pid, 2),
+    meck:sequence(random, uniform, 1, [1, 1, 2]),
+    Workers = get_workers(SupervisorPid),
+    epc:randomcast(Pid, Msg = msg),
+    epc:sync(Pid),
+
+    OrderedWorkers =
+        case meck_improvements:count_calls(epw, process, [hd(Workers), Msg]) of
+            1 ->
+                Workers;
+            _ -> % Reverse the order
+                lists:reverse(Workers)
+        end,
+    assert_workers_process(OrderedWorkers, [1, 0], Msg),
+    randomcast_and_assert(Pid, Msg, OrderedWorkers, [2, 0]),
+    randomcast_and_assert(Pid, Msg, OrderedWorkers, [2, 1]),
+    meck:unload(random),
+    ok.
+
+randomcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
+    epc:randomcast(Pid, Msg),
+    epc:sync(Pid),
+    assert_workers_process(OrderedWorkers, ExpectedList, Msg).
+
+assert_workers_process(Workers, ExpectedList, Msg) ->
+    NumberOfWorkers = length(Workers),
+    ExpectedRandomUniformCalls = lists:sum(ExpectedList),
+    ?assertEqual(ExpectedRandomUniformCalls, meck_improvements:count_calls(
+                   random, uniform, [NumberOfWorkers])),
+    lists:foreach(
+      fun({Worker, Expected}) ->
+              ?assertEqual(Expected, meck_improvements:count_calls(
+                             epw, process, [Worker, Msg]))
+      end, lists:zip(Workers, ExpectedList)).
+
+should_seed_at_startuo_test() ->
+    meck:new(random, [passthrough, unstick]),
+    S = setup(),
+    ?assertEqual(1, meck_improvements:count_calls_wildcard(
+		      random, seed, ['_','_','_'])),
+    teardown(S),
+    meck:unload(random).
+
+should_not_start_with_invalid_callback_module_test() ->
     CallbackModule = invalid_callback_module,
     ?assertEqual({error, {invalid_callback_module, CallbackModule}},
         epc_sup:start_link(epc_name, invalid_callback_module)).

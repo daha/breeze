@@ -46,6 +46,7 @@
 -export([start_link/2]).
 -export([start_workers/2]).
 -export([multicast/2]).
+-export([randomcast/2]).
 -export([sync/1]).
 
 %% gen_server callbacks
@@ -65,6 +66,9 @@ start_workers(Server, NumberOfWorkers) ->
 multicast(Server,  Msg) ->
     gen_server:cast(Server, {msg, all, Msg}).
 
+randomcast(Server, Msg) ->
+    gen_server:cast(Server, {msg, random, Msg}).
+
 sync(Server) ->
     gen_server:call(Server, sync).
 
@@ -82,6 +86,8 @@ sync(Server) ->
 %% --------------------------------------------------------------------
 init([SupervisorPid]) ->
     self() ! {get_worker_sup, SupervisorPid},
+    {_, A, B} = now(),
+    random:seed(A, B, erlang:phash2(make_ref())),
     {ok, #state{}}.
 
 %% --------------------------------------------------------------------
@@ -113,6 +119,9 @@ handle_call(_Request, _From, State) ->
 %% --------------------------------------------------------------------
 handle_cast({msg, all, Msg}, State) ->
     i_multicast(State#state.workers, Msg),
+    {noreply, State};
+handle_cast({msg, random, Msg}, State) ->
+    i_randomcast(State#state.workers, Msg),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -150,8 +159,13 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %% --------------------------------------------------------------------
 
+i_sync(Workers) ->
+    lists:foreach(fun(Pid) -> ok = epw:sync(Pid) end, Workers).
+
 i_multicast(Workers, Msg) ->
     lists:foreach(fun(Pid) -> epw:process(Pid, Msg) end, Workers).
 
-i_sync(Workers) ->
-    lists:foreach(fun(Pid) -> ok = epw:sync(Pid) end, Workers).
+i_randomcast(Workers, Msg) ->
+    RandInt = random:uniform(length(Workers)),
+    WorkerPid = lists:nth(RandInt, Workers),
+    epw:process(WorkerPid, Msg).
