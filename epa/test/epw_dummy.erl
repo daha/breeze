@@ -33,6 +33,7 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
+%% Description: A basic implementation of the epw behaviour
 -module(epw_dummy).
 -behaviour(epw).
 -export([init/1, process/2, terminate/2]).

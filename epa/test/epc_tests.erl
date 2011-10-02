@@ -35,8 +35,6 @@
 %%====================================================================
 -module(epc_tests).
 
--ifdef(TEST).
-
 -include_lib("eunit/include/eunit.hrl").
 
 tests_with_mock_test_() ->
@@ -108,5 +106,3 @@ start(CallbackModule) ->
     {ok, SupervisorPid} = epc_sup:start_link(epc_name, CallbackModule),
     Pid = get_epc_pid(SupervisorPid),
     {Pid, SupervisorPid}.
-
--endif.

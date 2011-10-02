@@ -35,8 +35,6 @@
 %%====================================================================
 -module(epc_sup_tests).
 
--ifdef(TEST).
-
 -include_lib("eunit/include/eunit.hrl").
 
 -define(CONTROLLER, test_controller).
@@ -70,5 +68,3 @@ start() ->
 
 stop(Pid) ->
    epc_sup:stop(Pid).
-
--endif.

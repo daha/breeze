@@ -35,8 +35,6 @@
 %%====================================================================
 -module(epa_tests).
 
--ifdef(TEST).
-
 -include_lib("eunit/include/eunit.hrl").
 
 unload() ->
@@ -59,5 +57,3 @@ t_stop_app() ->
     application:start(epa),
     ok = application:stop(epa),
     ?assert(undefined == whereis(epa_sup)).
-
--endif.

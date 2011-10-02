@@ -35,8 +35,6 @@
 %%====================================================================
 -module(epw_sup_tests).
 
--ifdef(TEST).
-
 -include_lib("eunit/include/eunit.hrl").
 
 start_stop_test() ->
@@ -87,5 +85,3 @@ start(CallBackModule) ->
 
 stop(Pid) ->
    epw_sup:stop(Pid).
-
--endif.
