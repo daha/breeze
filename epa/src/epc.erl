@@ -95,7 +95,8 @@ init([SupervisorPid]) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_call({start_workers, NumberOfWorkers}, _From, State) ->
-    {ok, NewWorkers} = epw_sup:start_workers(State#state.sup_pid, NumberOfWorkers),
+    {ok, NewWorkers} = epw_sup:start_workers(State#state.sup_pid,
+					     NumberOfWorkers),
     {reply, ok, State#state{workers = State#state.workers ++ NewWorkers}};
 handle_call(sync, _From, State) ->
     i_sync(State#state.workers),
