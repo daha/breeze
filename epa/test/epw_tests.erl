@@ -35,60 +35,26 @@
 %%====================================================================
 -module(epw_tests).
 
--ifdef(TEST).
-
 -include_lib("eunit/include/eunit.hrl").
-
--behaviour(epw).
--export([init/1, process/2, terminate/2]).
-
-% callback methods
-init(Pid) when is_pid(Pid) ->
-    Pid ! init,
-    {ok, []};
-init(Args) ->
-    {ok, Args}.
-
-process(Pid, State) when is_pid(Pid) ->
-    Pid ! {process, State},
-    {ok, State};
-process(_Data, State) ->
-    {ok, State}.
-
-terminate(_Reason, List) when is_list(List) ->
-    case proplists:get_value(terminate, List) of
-        Pid when is_pid(Pid) ->
-            Pid ! {stopped, List},
-            terminated;
-        undefined ->
-            not_the_state
-    end;
-terminate(_Reason, State) ->
-    State.
 
 % Tests
 start_stop_test() ->
-    {ok, Pid} = epw:start_link(?MODULE, []),
+    Mock = create_mock(),
+    {ok, Pid} = epw:start_link(Mock, []),
     ?assertNot(undefined == process_info(Pid)),
-    {ok, _} = epw:stop(Pid).
-
-% TODO: rewrite without receive
-init_test() ->
-    Pid = start(),
-    receive init -> ok end,
-    epw:stop(Pid).
+    {ok, _} = epw:stop(Pid),
+    delete_mock(Mock).
 
 stop_should_return_the_state_test() ->
-    Ref = make_ref(),
-    Pid = start(Ref),
-    ?assertEqual({ok, Ref}, epw:stop(Pid)).
+    [Pid, Mock, StateRef] = setup(),
+    ?assertEqual({ok, StateRef}, epw:stop(Pid)),
+    delete_mock(Mock).
 
-% TODO: rewrite without receive
-stop_should_call_terminate_test() ->
-    Args = [{terminate, self()}],
-    Pid = start(Args),
-    ?assertEqual({ok, terminated}, epw:stop(Pid)),
-    receive {stopped, Args} -> ok end.
+should_call_terminate_on_stop_test() ->
+    [Pid, Mock, StateRef] = setup(),
+    epw:stop(Pid),
+    ?assert(meck:called(Mock, terminate, [normal, StateRef])),
+    delete_mock(Mock).
 
 behaviour_info_test() ->
     Expected = [{init,1},
@@ -99,38 +65,55 @@ behaviour_info_test() ->
     ?assertEqual(undefined, epw:behaviour_info(foo)).
 
 validate_module_test() ->
-    ?assertNot(epw:validate_module(not_valid_module)),
-    ?assert(epw:validate_module(?MODULE)).
+    Mock = create_mock(),
+    NotValidModule = not_valid_module,
+    meck:new(NotValidModule),
+    ?assertNot(epw:validate_module(NotValidModule)),
+    ?assert(epw:validate_module(Mock)),
+    delete_mock(Mock),
+    delete_mock(NotValidModule).
 
-sync_test() ->
+mocked_tests_test_() ->
+    {foreach, fun setup/0, fun teardown/1,
+     [{with, [T]} || T <- [fun should_call_init_/1,
+			   fun should_handle_sync_/1,
+			   fun should_call_process_/1
+			  ]]}.
+
+should_call_init_([_Pid, Mock, StateRef]) ->
+    ?assert(meck:called(Mock, init, [StateRef])).
+
+should_handle_sync_([Pid | _]) ->
     meck:new(epw, [passthrough]),
-    Pid = start(),
     ok = epw:sync(Pid),
     ?assertEqual(1, meck_improvements:count_calls_wildcard(
-                   epw, handle_call, [sync | '_'])),
-    epw:stop(Pid),
-    catch meck:unload(epw).
+		      epw, handle_call, [sync | '_'])),
+    meck:unload(epw).
 
-% TODO: rewrite without receive
-process_test() ->
-    Ref = make_ref(),
-    Pid = start(Ref),
-    epw:process(Pid, self()),
-    receive {process, Ref} -> ok end,
-    epw:stop(Pid).
+should_call_process_([Pid, Mock, StateRef]) ->
+    MessageRef = make_ref(),
+    ok = epw:process(Pid, MessageRef),
+    epw:sync(Pid), % Sync with the process to make sure it has processed
+    ?assert(meck:called(Mock, process, [MessageRef, StateRef])).
 
 % Helper functions
-flush() ->
-    receive _Any -> flush()
-    after 0 -> true
-    end.
+setup() ->
+    Mock = create_mock(),
+    StateRef = make_ref(),
+    {ok, Pid} = epw:start_link(Mock, StateRef),
+    [Pid, Mock, StateRef].
 
-start() ->
-    start(self()).
+teardown([Pid, Mock | _]) ->
+    epw:stop(Pid),
+    delete_mock(Mock).
 
-start(UserArgs) ->
-    flush(),
-    {ok, Pid} = epw:start_link(?MODULE, UserArgs),
-    Pid.
+create_mock() ->
+    Mock = epw_mock,
+    meck:new(Mock),
+    meck:expect(Mock, init, fun(State) -> {ok, State} end),
+    meck:expect(Mock, process, fun(_Msg, State) -> {ok, State} end),
+    meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
+    Mock.
 
--endif.
+delete_mock(Mock) ->
+    catch meck:unload(Mock).
