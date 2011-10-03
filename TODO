@@ -11,5 +11,3 @@
   * Hash on key X
 * Add loop detection, add timestamp when they enter the system.  That
   can also be used to measure the latency of the configuration.
-* Replace all headers to the edoc versions, from the emacs templates
-  in erlang otp
