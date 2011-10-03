@@ -88,11 +88,13 @@ i_count_calls_wildcard({M, F, A1}, [{{M, F, A2}, _ExType, _Exp, _Stack} | Rest],
 i_count_calls_wildcard({M, F, A}, [_Call | Rest], Count) ->
     i_count_calls_wildcard({M, F, A}, Rest, Count).
 
-i_match_args([], []) ->
+i_match_args(A, A) ->
     true;
 i_match_args([], _) ->
     false;
-i_match_args([H1 | '_'], [H1 | _]) ->
+i_match_args(_, []) ->
+    false;
+i_match_args('_', _) ->
     true;
 i_match_args(['_'|R1], [_|R2]) ->
     i_match_args(R1, R2);
