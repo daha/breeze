@@ -33,28 +33,37 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
-%% Description: Supervisor for epw - event processing workers
+
+%% @author David Haglund
+%% @copyright 2011, David Haglund
+%% @doc
+%% Supervisor for epw - event processing workers
+%% @end
 
 -module(epw_sup).
 
 -behaviour(supervisor).
 
-%% --------------------------------------------------------------------
-%% External exports
-%% --------------------------------------------------------------------
+%% API
 -export([start_link/1]).
 -export([stop/1]).
 -export([start_worker/1]).
 -export([start_workers/2]).
 
-%% --------------------------------------------------------------------
-%% Internal exports
-%% --------------------------------------------------------------------
+%% Supervisor callbacks
 -export([init/1]).
 
-%% ====================================================================
-%% External functions
-%% ====================================================================
+%%%===================================================================
+%%% API functions
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the supervisor
+%%
+%% @spec start_link(Module) -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 start_link(Module) ->
     supervisor:start_link(?MODULE, [Module]).
 
@@ -73,24 +82,31 @@ start_worker(Pid) ->
 start_workers(Pid, NumberOfChildren) ->
     start_workers(Pid, NumberOfChildren, []).
 
+%%%===================================================================
+%%% Supervisor callbacks
+%%%===================================================================
 
-%% ====================================================================
-%% Server functions
-%% ====================================================================
-%% --------------------------------------------------------------------
-%% Func: init/1
-%% Returns: {ok,  {SupFlags,  [ChildSpec]}} |
-%%          ignore                          |
-%%          {error, Reason}
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Whenever a supervisor is started using supervisor:start_link/[2,3],
+%% this function is called by the new process to find out about
+%% restart strategy, maximum restart frequency and child
+%% specifications.
+%%
+%% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |
+%%                     ignore |
+%%                     {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
 init([Module]) ->
     ChildSpec = {worker, {epw, start_link, [Module, []]},
                  transient, 5000, worker, [epw, Module]},
     {ok,{{simple_one_for_one,0,1}, [ChildSpec]}}.
 
-%% ====================================================================
-%% Internal functions
-%% ====================================================================
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
 start_workers(_SupervisorPid, _NumberOfChildren = 0, Pids) ->
     {ok, Pids};
 start_workers(SupervisorPid, NumberOfChildren, Pids) ->

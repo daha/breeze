@@ -33,18 +33,18 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
-%% Description: Event processing worker
+
+%% @author David Haglund
+%% @copyright 2011, David Haglund
+%% @doc
+%% Event processing worker
+%% @end
 
 -module(epw).
 
 -behaviour(gen_server).
 
-%% --------------------------------------------------------------------
-%% Include files
-%% --------------------------------------------------------------------
-
-%% --------------------------------------------------------------------
-%% External exports
+%% API
 -export([behaviour_info/1]).
 -export([start_link/2]).
 -export([stop/1]).
@@ -54,16 +54,17 @@
 -export([validate_module/1]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
 
 -record(state, {
                 callback,
                 user_args
                }).
 
-%% ====================================================================
-%% External functions
-%% ====================================================================
+%%%===================================================================
+%%% API
+%%%===================================================================
 behaviour_info(callbacks) ->
     [{init,1},
      {process, 2},
@@ -71,6 +72,13 @@ behaviour_info(callbacks) ->
 behaviour_info(_Other) ->
     undefined.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the server
+%%
+%% @spec start_link(Callback, UserArgs) -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 start_link(Callback, UserArgs) ->
     gen_server:start_link(?MODULE, #state{callback=Callback, user_args = UserArgs}, []).
 
@@ -91,33 +99,40 @@ validate_module(Module) ->
 sync(Pid) ->
     gen_server:call(Pid, sync).
 
-%% ====================================================================
-%% Server functions
-%% ====================================================================
+%%%===================================================================
+%%% gen_server callbacks
+%%%===================================================================
 
-%% --------------------------------------------------------------------
-%% Function: init/1
-%% Description: Initiates the server
-%% Returns: {ok, State}          |
-%%          {ok, State, Timeout} |
-%%          ignore               |
-%%          {stop, Reason}
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Initializes the server
+%%
+%% @spec init(Args) -> {ok, State} |
+%%                     {ok, State, Timeout} |
+%%                     ignore |
+%%                     {stop, Reason}
+%% @end
+%%--------------------------------------------------------------------
 init(State) ->
     Callback = State#state.callback,
     {ok, UserArgs} = Callback:init(State#state.user_args),
     {ok, State#state{user_args = UserArgs}}.
 
-%% --------------------------------------------------------------------
-%% Function: handle_call/3
-%% Description: Handling call messages
-%% Returns: {reply, Reply, State}          |
-%%          {reply, Reply, State, Timeout} |
-%%          {noreply, State}               |
-%%          {noreply, State, Timeout}      |
-%%          {stop, Reason, Reply, State}   | (terminate/2 is called)
-%%          {stop, Reason, State}            (terminate/2 is called)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling call messages
+%%
+%% @spec handle_call(Request, From, State) ->
+%%                                   {reply, Reply, State} |
+%%                                   {reply, Reply, State, Timeout} |
+%%                                   {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, Reply, State} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_call(sync, _From, State) ->
     {reply, ok, State};
 handle_call(stop, _From, State) ->
@@ -125,45 +140,59 @@ handle_call(stop, _From, State) ->
     UserArgs = Callback:terminate(normal,  State#state.user_args),
     {stop, normal, {ok, UserArgs}, State}.
 
-%% --------------------------------------------------------------------
-%% Function: handle_cast/2
-%% Description: Handling cast messages
-%% Returns: {noreply, State}          |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State}            (terminate/2 is called)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling cast messages
+%%
+%% @spec handle_cast(Msg, State) -> {noreply, State} |
+%%                                  {noreply, State, Timeout} |
+%%                                  {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_cast({msg, Msg}, State) ->
     Callback = State#state.callback,
     {ok, UserArgs} = Callback:process(Msg, State#state.user_args),
     {noreply, State#state{user_args = UserArgs}}.
 
-%% --------------------------------------------------------------------
-%% Function: handle_info/2
-%% Description: Handling all non call/cast messages
-%% Returns: {noreply, State}          |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State}            (terminate/2 is called)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling all non call/cast messages
+%%
+%% @spec handle_info(Info, State) -> {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_info(_Msg, State) ->
     {noreply, State}.
 
-%% --------------------------------------------------------------------
-%% Function: terminate/2
-%% Description: Shutdown the server
-%% Returns: any (ignored by gen_server)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% This function is called by a gen_server when it is about to
+%% terminate. It should be the opposite of Module:init/1 and do any
+%% necessary cleaning up. When it returns, the gen_server terminates
+%% with Reason. The return value is ignored.
+%%
+%% @spec terminate(Reason, State) -> void()
+%% @end
+%%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
     ok.
 
-%% --------------------------------------------------------------------
-%% Func: code_change/3
-%% Purpose: Convert process state when code is changed
-%% Returns: {ok, NewState}
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Convert process state when code is changed
+%%
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @end
+%%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%% --------------------------------------------------------------------
+%%%===================================================================
 %%% Internal functions
-%% --------------------------------------------------------------------
-
+%%%===================================================================

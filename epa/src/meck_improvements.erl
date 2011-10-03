@@ -33,23 +33,30 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
-%% Description: Addons to meck
+
+%% @author David Haglund
+%% @copyright 2011, David Haglund
+%% @doc
+%% Addons to meck
+%% @end
 
 -module(meck_improvements).
 
-%% Exported Functions
+%% API
 -export([count_calls/3]).
 -export([count_calls_wildcard/3]).
 
-%% API Functions
-
+%%%===================================================================
+%%% API functions
+%%%===================================================================
 count_calls(Mod, Fun, Args) ->
     i_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
 count_calls_wildcard(Mod, Fun, Args) ->
     i_count_calls_wildcard({Mod, Fun, Args}, meck:history(Mod), 0).
 
-
-%% Local Functions
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
 i_count_calls({_M, _F, _A}, [], Count) -> Count;
 i_count_calls({M, F, A}, [{{M, F, A}, _Result} | Rest], Count) ->
     i_count_calls({M, F, A}, Rest, Count + 1);

@@ -33,6 +33,13 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
+
+%% @author David Haglund
+%% @copyright 2011, David Haglund
+%% @doc
+%%
+%% @end
+
 -module(epc_sup_tests).
 
 -include_lib("eunit/include/eunit.hrl").

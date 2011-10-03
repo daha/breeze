@@ -33,14 +33,18 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
-%% Description: Supervisor for epc - event processing controller
+
+%% @author David Haglund
+%% @copyright 2011, David Haglund
+%% @doc
+%% Supervisor for epc - event processing controller
+%% @end
 
 -module(epc_sup).
 
 -behaviour(supervisor).
-%% --------------------------------------------------------------------
-%% External exports
-%% --------------------------------------------------------------------
+
+%% API
 -export([start_link/2]).
 -export([stop/1]).
 -export([get_worker_sup_pid/1]).
@@ -50,18 +54,21 @@
 -export([get_worker_sup_id/0]).
 -endif.
 
-%% --------------------------------------------------------------------
-%% Internal exports
-%% --------------------------------------------------------------------
+%% Supervisor callbacks
 -export([init/1]).
 
-%% --------------------------------------------------------------------
-%% Macros
-%% --------------------------------------------------------------------
+%%%===================================================================
+%%% API functions
+%%%===================================================================
 
-%% ====================================================================
-%% External functions
-%% ====================================================================
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the supervisor
+%%
+%% @spec start_link(ControllerName, WorkerCallback) ->
+%%           {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 start_link(ControllerName, WorkerCallback) ->
     case epw:validate_module(WorkerCallback) of
         true ->
@@ -85,15 +92,23 @@ get_controller_id() ->
 get_worker_sup_id() ->
     worker_sup.
 
-%% ====================================================================
-%% Server functions
-%% ====================================================================
-%% --------------------------------------------------------------------
-%% Func: init/1
-%% Returns: {ok,  {SupFlags,  [ChildSpec]}} |
-%%          ignore                          |
-%%          {error, Reason}
-%% --------------------------------------------------------------------
+%%%===================================================================
+%%% Supervisor callbacks
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Whenever a supervisor is started using supervisor:start_link/[2,3],
+%% this function is called by the new process to find out about
+%% restart strategy, maximum restart frequency and child
+%% specifications.
+%%
+%% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |
+%%                     ignore |
+%%                     {error, Reason}
+%% @end
+%%--------------------------------------------------------------------
 init([ControllerName, WorkerCallback]) ->
     WorkerSup =   {get_worker_sup_id(), {epw_sup, start_link,[WorkerCallback]},
                    permanent, infinity, supervisor, [epw_sup]},

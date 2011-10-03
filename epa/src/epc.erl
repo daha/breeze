@@ -33,19 +33,19 @@
 %% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
-%% Description: Event processing controller, manages the workers and 
-%%              passed data to them.
+
+%% @author David Haglund
+%% @copyright 2011, David Haglund
+%% @doc
+%% Event processing controller, manages the workers and passed data
+%% to them.
+%% @end
 
 -module(epc).
 
 -behaviour(gen_server).
 
-%% --------------------------------------------------------------------
-%% Include files
-%% --------------------------------------------------------------------
-
-%% --------------------------------------------------------------------
-%% External exports
+%% API
 -export([start_link/2]).
 -export([start_workers/2]).
 -export([multicast/2]).
@@ -54,13 +54,22 @@
 -export([sync/1]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
+         terminate/2, code_change/3]).
 
 -record(state, {sup_pid, workers = []}).
 
-%% ====================================================================
-%% External functions
-%% ====================================================================
+%%%===================================================================
+%%% API
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Starts the server
+%%
+%% @spec start_link(Name, SupervisorPid) -> {ok, Pid} | ignore | {error, Error}
+%% @end
+%%--------------------------------------------------------------------
 start_link(Name, SupervisorPid) ->
     gen_server:start_link({local, Name}, ?MODULE, [SupervisorPid], []).
 
@@ -81,34 +90,41 @@ keyhashcast(_Server, Msg) ->
 sync(Server) ->
     gen_server:call(Server, sync).
 
-%% ====================================================================
-%% Server functions
-%% ====================================================================
+%%%===================================================================
+%%% gen_server callbacks
+%%%===================================================================
 
-%% --------------------------------------------------------------------
-%% Function: init/1
-%% Description: Initiates the server
-%% Returns: {ok, State}          |
-%%          {ok, State, Timeout} |
-%%          ignore               |
-%%          {stop, Reason}
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Initializes the server
+%%
+%% @spec init(Args) -> {ok, State} |
+%%                     {ok, State, Timeout} |
+%%                     ignore |
+%%                     {stop, Reason}
+%% @end
+%%--------------------------------------------------------------------
 init([SupervisorPid]) ->
     self() ! {get_worker_sup, SupervisorPid},
     {_, A, B} = now(),
     random:seed(A, B, erlang:phash2(make_ref())),
     {ok, #state{}}.
 
-%% --------------------------------------------------------------------
-%% Function: handle_call/3
-%% Description: Handling call messages
-%% Returns: {reply, Reply, State}          |
-%%          {reply, Reply, State, Timeout} |
-%%          {noreply, State}               |
-%%          {noreply, State, Timeout}      |
-%%          {stop, Reason, Reply, State}   | (terminate/2 is called)
-%%          {stop, Reason, State}            (terminate/2 is called)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling call messages
+%%
+%% @spec handle_call(Request, From, State) ->
+%%                                   {reply, Reply, State} |
+%%                                   {reply, Reply, State, Timeout} |
+%%                                   {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, Reply, State} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_call({start_workers, NumberOfWorkers}, _From, State) ->
     {ok, NewWorkers} = epw_sup:start_workers(State#state.sup_pid,
 					     NumberOfWorkers),
@@ -119,13 +135,16 @@ handle_call(sync, _From, State) ->
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
-%% --------------------------------------------------------------------
-%% Function: handle_cast/2
-%% Description: Handling cast messages
-%% Returns: {noreply, State}          |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State}            (terminate/2 is called)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling cast messages
+%%
+%% @spec handle_cast(Msg, State) -> {noreply, State} |
+%%                                  {noreply, State, Timeout} |
+%%                                  {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_cast({msg, all, Msg}, State) ->
     i_multicast(State#state.workers, Msg),
     {noreply, State};
@@ -138,38 +157,50 @@ handle_cast({msg, keyhash, Msg}, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
-%% --------------------------------------------------------------------
-%% Function: handle_info/2
-%% Description: Handling all non call/cast messages
-%% Returns: {noreply, State}          |
-%%          {noreply, State, Timeout} |
-%%          {stop, Reason, State}            (terminate/2 is called)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Handling all non call/cast messages
+%%
+%% @spec handle_info(Info, State) -> {noreply, State} |
+%%                                   {noreply, State, Timeout} |
+%%                                   {stop, Reason, State}
+%% @end
+%%--------------------------------------------------------------------
 handle_info({get_worker_sup, SupervisorPid}, State) ->
     {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(SupervisorPid),
     {noreply, State#state{sup_pid = WorkerSupPid}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
-%% --------------------------------------------------------------------
-%% Function: terminate/2
-%% Description: Shutdown the server
-%% Returns: any (ignored by gen_server)
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% This function is called by a gen_server when it is about to
+%% terminate. It should be the opposite of Module:init/1 and do any
+%% necessary cleaning up. When it returns, the gen_server terminates
+%% with Reason. The return value is ignored.
+%%
+%% @spec terminate(Reason, State) -> void()
+%% @end
+%%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
     ok.
 
-%% --------------------------------------------------------------------
-%% Func: code_change/3
-%% Purpose: Convert process state when code is changed
-%% Returns: {ok, NewState}
-%% --------------------------------------------------------------------
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Convert process state when code is changed
+%%
+%% @spec code_change(OldVsn, State, Extra) -> {ok, NewState}
+%% @end
+%%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-%% --------------------------------------------------------------------
+%%%===================================================================
 %%% Internal functions
-%% --------------------------------------------------------------------
+%%%===================================================================
 
 i_sync(Workers) ->
     lists:foreach(fun(Pid) -> ok = epw:sync(Pid) end, Workers).
