@@ -49,6 +49,7 @@
 -export([stop/1]).
 -export([start_worker/1]).
 -export([start_workers/2]).
+-export([start_workers/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -82,6 +83,9 @@ start_worker(Pid) ->
 start_workers(Pid, NumberOfChildren) ->
     start_workers(Pid, NumberOfChildren, []).
 
+start_workers(Pid, NumberOfChildren, Opts) ->
+    i_start_workers(Pid, NumberOfChildren, Opts, _Pids = []).
+
 %%%===================================================================
 %%% Supervisor callbacks
 %%%===================================================================
@@ -100,22 +104,22 @@ start_workers(Pid, NumberOfChildren) ->
 %% @end
 %%--------------------------------------------------------------------
 init([Module]) ->
-    ChildSpec = {worker, {epw, start_link, [Module, [], []]},
+    ChildSpec = {worker, {epw, start_link, [Module, []]},
                  temporary, 5000, worker, [epw, Module]},
     {ok,{{simple_one_for_one,100,1}, [ChildSpec]}}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-start_workers(_SupervisorPid, _NumberOfChildren = 0, Pids) ->
+i_start_workers(_SupervisorPid, _NumberOfChildren = 0, _Opts, Pids) ->
     {ok, Pids};
-start_workers(SupervisorPid, NumberOfChildren, Pids) ->
-    case start_child(SupervisorPid) of
+i_start_workers(SupervisorPid, NumberOfChildren, Opts, Pids) ->
+    case i_start_child(SupervisorPid, Opts) of
         {ok, Pid} ->
-            start_workers(SupervisorPid, NumberOfChildren -1, [Pid | Pids]);
+            i_start_workers(SupervisorPid, NumberOfChildren -1, Opts, [Pid | Pids]);
         {error, _} = Error ->
             Error
     end.
 
-start_child(SupervisorPid) ->
-    supervisor:start_child(SupervisorPid, []).
+i_start_child(SupervisorPid, Opts) ->
+    supervisor:start_child(SupervisorPid, [Opts]).

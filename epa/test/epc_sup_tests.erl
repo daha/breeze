@@ -44,10 +44,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(CONTROLLER, test_controller).
-
 start_stop_test() ->
-    {ok, Pid} = epc_sup:start_link(?CONTROLLER, epw_dummy),
+    {ok, Pid} = epc_sup:start_link(epw_dummy),
     ?assert(is_process_alive(Pid)),
     ok = epc_sup:stop(Pid).
 
@@ -58,7 +56,6 @@ start_epc_test() ->
                 {supervisors,1},
                 {workers,1}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
-    ?assertMatch(Pid0 when is_pid(Pid0), whereis(?CONTROLLER)),
     stop(Pid).
 
 get_worker_sup_pid_test() ->
@@ -70,7 +67,7 @@ get_worker_sup_pid_test() ->
 
 % internal
 start() ->
-    {ok, Pid} = epc_sup:start_link(?CONTROLLER, epw_dummy),
+    {ok, Pid} = epc_sup:start_link(epw_dummy),
     Pid.
 
 stop(Pid) ->

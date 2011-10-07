@@ -46,18 +46,21 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2]).
+-export([start_link/1]).
+-export([set_targets/2]).
 -export([start_workers/2]).
+
+-export([sync/1]).
+
 -export([multicast/2]).
 -export([randomcast/2]).
 -export([keyhashcast/2]).
--export([sync/1]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {sup_pid, workers = undefined}).
+-record(state, {sup_pid, workers, targets}).
 
 %%%===================================================================
 %%% API
@@ -70,8 +73,11 @@
 %% @spec start_link(Name, SupervisorPid) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Name, SupervisorPid) ->
-    gen_server:start_link({local, Name}, ?MODULE, [SupervisorPid], []).
+start_link(SupervisorPid) ->
+    gen_server:start_link(?MODULE, [SupervisorPid], []).
+
+set_targets(Server, Targets) when is_list(Targets) ->
+    gen_server:call(Server, {set_targets, Targets}).
 
 start_workers(Server, NumberOfWorkers) ->
     gen_server:call(Server, {start_workers, NumberOfWorkers}).
@@ -127,10 +133,13 @@ init([SupervisorPid]) ->
 %%--------------------------------------------------------------------
 handle_call({start_workers, NumberOfWorkers}, _From,
             State = #state{workers = undefined}) ->
-    Workers = i_start_workers(State#state.sup_pid, NumberOfWorkers),
+    Options = i_make_options(State),
+    Workers = i_start_workers(State#state.sup_pid, NumberOfWorkers, Options),
     {reply, ok, State#state{workers = Workers}};
 handle_call({start_workers, _NumberOfWorkers}, _From, State) ->
     {reply, {error, already_started}, State};
+handle_call({set_targets, Targets}, _From, State) ->
+    {reply, ok, State#state{targets = Targets}};
 handle_call(sync, _From, State) ->
     i_sync(State#state.workers),
     {reply, ok, State};
@@ -223,14 +232,20 @@ i_keyhashcast(Workers, Msg) ->
     {WorkerPid, _} = lists:nth(Hash, Workers),
     epw:process(WorkerPid, Msg).
 
-i_start_workers(SupPid, NumberOfWorkers) ->
-    {ok, Workers} = epw_sup:start_workers(SupPid, NumberOfWorkers),
+i_make_options(#state{targets = undefined}) ->
+    [];
+i_make_options(#state{targets = Targets}) ->
+    [{targets, Targets}].
+
+i_start_workers(SupPid, NumberOfWorkers, Options) ->
+    {ok, Workers} = epw_sup:start_workers(SupPid, NumberOfWorkers, Options),
     i_monitor_workers(Workers).
 
 i_monitor_workers(Workers) ->
     lists:map(fun(Pid) -> Ref = monitor(process, Pid), {Pid, Ref} end, Workers).
 
 i_restart_worker(OldPid, State) ->
-    [NewWorker] = i_start_workers(State#state.sup_pid, 1),
+    Options = i_make_options(State),
+    [NewWorker] = i_start_workers(State#state.sup_pid, 1, Options),
     Workers = lists:keyreplace(OldPid, 1, State#state.workers, NewWorker),
     State#state{workers = Workers}.

@@ -45,7 +45,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/2]).
+-export([start_link/1]).
 -export([stop/1]).
 -export([get_worker_sup_pid/1]).
 
@@ -69,10 +69,10 @@
 %%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(ControllerName, WorkerCallback) ->
+start_link(WorkerCallback) ->
     case epw:validate_module(WorkerCallback) of
         true ->
-            supervisor:start_link(?MODULE, [ControllerName, WorkerCallback]);
+            supervisor:start_link(?MODULE, [WorkerCallback]);
         false ->
             {error, {invalid_callback_module, WorkerCallback}}
     end.
@@ -109,11 +109,11 @@ get_worker_sup_id() ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([ControllerName, WorkerCallback]) ->
+init([WorkerCallback]) ->
     WorkerSup =   {get_worker_sup_id(), {epw_sup, start_link,[WorkerCallback]},
                    permanent, infinity, supervisor, [epw_sup]},
     Controller = {get_controller_id(),
-                  {epc, start_link, [ControllerName, self()]},
+                  {epc, start_link, [self()]},
                   permanent, 2000, worker, [epc]},
     ChildSpecs = [WorkerSup, Controller],
     {ok,{{one_for_all,0,1}, ChildSpecs}}.

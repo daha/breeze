@@ -79,7 +79,7 @@ behaviour_info(_Other) ->
 %% @spec start_link(Callback, UserArgs) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Callback, _Args, UserArgs) ->
+start_link(Callback, UserArgs, _Args) ->
     gen_server:start_link(?MODULE, #state{callback=Callback, user_args = UserArgs}, []).
 
 stop(Pid) ->

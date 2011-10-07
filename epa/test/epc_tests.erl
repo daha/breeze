@@ -55,7 +55,8 @@ tests_with_mock_test_() ->
                             fun t_sync/1,
                             fun t_randomcast/1,
                             fun t_keyhashcast/1,
-                            fun t_keyhashcast_error/1
+                            fun t_keyhashcast_error/1,
+                            fun t_config_with_one_epc_target/1
                            ]]}.
 
 t_start_stop([Pid | _]) ->
@@ -74,9 +75,7 @@ t_should_not_allow_start_workers_once([Pid, SupervisorPid | _ ]) ->
 t_restart_worker_when_it_crash([Pid, SupervisorPid | _]) ->
     ok = epc:start_workers(Pid, 1),
     [Worker] = get_workers(SupervisorPid),
-    Ref = monitor(process, Worker),
-    exit(Worker, crash),
-    receive {'DOWN', Ref, process, Worker, _Info} -> ok end,
+    sync_exit(Worker),
     ?assertMatch([_], get_workers(SupervisorPid)).
 
 t_restarted_worker_should_keep_its_place([Pid, SupervisorPid | _]) ->
@@ -88,9 +87,7 @@ t_restarted_worker_should_keep_its_place([Pid, SupervisorPid | _]) ->
     ok = epc:sync(Pid),
     [FirstWorker | _ ] = OrderedWorkers = order_workers(Workers, Msg1),
     assert_workers_process_function_is_called(OrderedWorkers, [1, 0], Msg1),
-    Ref = monitor(process, FirstWorker),
-    exit(FirstWorker, crash),
-    receive {'DOWN', Ref, process, _, _} -> ok end,
+    sync_exit(FirstWorker),
     Workers2 = get_workers(SupervisorPid),
     [NewWorker] = Workers2 -- Workers,
     OrderedWorkers2 = replace(OrderedWorkers, FirstWorker, NewWorker),
@@ -145,7 +142,15 @@ t_keyhashcast_error([Pid | _]) ->
     ?assertEqual({error, {not_a_valid_message, Msg}},
                  epc:keyhashcast(Pid, Msg)).
 
-
+t_config_with_one_epc_target([Pid1, _SupervisorPid1, MockModule | _]) ->
+    {OtherEpc, SupervisorPid2} = start(MockModule),
+    Targets = [{OtherEpc, all}],
+    ok = epc:set_targets(Pid1, Targets),
+    ok = epc:start_workers(Pid1, 1),
+    ?assert(meck:validate(epw)),
+    ?assertEqual(1, meck_improvements:count_calls(
+                   epw, start_link, [MockModule, [], [{targets,Targets}]])),
+    epc_sup:stop(SupervisorPid2).
 
 should_seed_at_startup_test() ->
     meck:new(random, [passthrough, unstick]),
@@ -158,7 +163,7 @@ should_seed_at_startup_test() ->
 should_not_start_with_invalid_callback_module_test() ->
     CallbackModule = invalid_callback_module,
     ?assertEqual({error, {invalid_callback_module, CallbackModule}},
-        epc_sup:start_link(epc_name, invalid_callback_module)).
+        epc_sup:start_link(invalid_callback_module)).
 
 % Assert functions
 assert_workers_are_called(SupervisorPid, Func) ->
@@ -195,6 +200,9 @@ assert_workers_random_and_process(Workers, ExpectedList, Msg) ->
 
 % Setup/teardown functions
 setup() ->
+%%     d:t(?MODULE),
+%%     d:t(epc),
+%%     d:t(epw),
     meck:new(epw, [passthrough]),
     MockModule = create_epw_behaviour_stub(),
     {Pid, SupervisorPid} = start(MockModule),
@@ -209,7 +217,7 @@ create_epw_behaviour_stub() ->
     MockModule.
 
 start(CallbackModule) ->
-    {ok, SupervisorPid} = epc_sup:start_link(epc_name, CallbackModule),
+    {ok, SupervisorPid} = epc_sup:start_link(CallbackModule),
     Pid = get_epc_pid(SupervisorPid),
     {Pid, SupervisorPid}.
 
@@ -253,3 +261,10 @@ replace([Other | Rest], Old, New) ->
     [Other | replace(Rest, Old, New)];
 replace([], _Old, _New) ->
     [].
+
+sync_exit(Pid) ->
+    Ref = monitor(process, Pid),
+    exit(Pid, crash),
+    receive {'DOWN', Ref, process, _, _} -> ok end,
+    timer:sleep(50). %% TODO: Find a way to get rid of this sleep.
+

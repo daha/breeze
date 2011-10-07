@@ -107,7 +107,7 @@ should_call_process_([Pid, Mock, StateRef]) ->
 setup() ->
     Mock = create_mock(),
     StateRef = make_ref(),
-    {ok, Pid} = epw:start_link(Mock, [], StateRef),
+    {ok, Pid} = epw:start_link(Mock, StateRef, []),
     [Pid, Mock, StateRef].
 
 teardown([Pid, Mock | _]) ->
