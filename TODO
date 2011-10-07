@@ -1,12 +1,10 @@
-* Configure how epw send the data to next epc
 * Add a builder module which connects all epc:s (configures the epc:s)
   - epc passes the informtion down to the children when they are
     started as args to the supervisor
 * Route messages in epc to workers for
   * Hash on key X
   * one worker per key, create workers dynamically when needed
-* Add a EmitFun to the process method, to be used to send data to next
-  processing unit.
 * Add loop detection, add timestamp when they enter the system.  That
   can also be used to measure the latency of the configuration.
 * add possibility for worker to give ets table to epc
+* Add infinity to all gen_server:calls
