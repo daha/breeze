@@ -83,9 +83,9 @@ validate_module_test() ->
 mocked_tests_test_() ->
     {foreach, fun setup/0, fun teardown/1,
      [{with, [T]} || T <- [fun should_call_init_/1,
-			   fun should_handle_sync_/1,
-			   fun should_call_process_/1
-			  ]]}.
+                           fun should_handle_sync_/1,
+                           fun should_call_process_/1
+                          ]]}.
 
 should_call_init_([_Pid, Mock, StateRef]) ->
     ?assert(meck:called(Mock, init, [StateRef])).
@@ -103,6 +103,35 @@ should_call_process_([Pid, Mock, StateRef]) ->
     epw:sync(Pid), % Sync with the process to make sure it has processed
     ?assertEqual(1, meck_improvements:count_calls_wildcard(
                    Mock, process, [MessageRef, '_', StateRef])).
+
+verify_emitted_message_is_multicasted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(multicast, all).
+verify_emitted_message_is_randomcasted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(randomcast, random).
+verify_emitted_message_is_keyhashcasted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(keyhashcast, keyhash).
+
+verify_emitted_message_is_sent_to_all_targets(Func, DistributionKey) ->
+    Mock = create_mock(),
+    meck:expect(Mock, process,
+                fun(Msg, EmitFun, State) ->
+                        EmitFun(Msg),
+                        {ok, State}
+                end),
+    AnotherPid = hd(processes()),
+    Targets = [{self(), DistributionKey}, {AnotherPid, DistributionKey}],
+    {ok, Pid} = epw:start_link(Mock, [], [{targets, Targets}]),
+    meck:new(epc),
+    meck:expect(epc, Func, 2, ok),
+    Msg = {foo, bar},
+    epw:process(Pid, Msg),
+    epw:sync(Pid),
+    ?assert(meck:validate(epc)),
+    ?assert(meck:called(epc, Func, [self(), Msg])),
+    ?assert(meck:called(epc, Func, [AnotherPid, Msg])),
+    epw:stop(Pid),
+    delete_mock(Mock),
+    meck:unload(epc).
 
 % Helper functions
 setup() ->

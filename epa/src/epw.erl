@@ -59,7 +59,8 @@
 
 -record(state, {
                 callback,
-                user_args
+                user_args,
+                targets
                }).
 
 %%%===================================================================
@@ -79,8 +80,8 @@ behaviour_info(_Other) ->
 %% @spec start_link(Callback, UserArgs) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Callback, UserArgs, _Args) ->
-    gen_server:start_link(?MODULE, #state{callback=Callback, user_args = UserArgs}, []).
+start_link(Callback, UserArgs, Args) ->
+    gen_server:start_link(?MODULE, [Callback, UserArgs, Args], []).
 
 stop(Pid) ->
     gen_server:call(Pid, stop).
@@ -114,10 +115,10 @@ sync(Pid) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init(State) ->
-    Callback = State#state.callback,
-    {ok, UserArgs} = Callback:init(State#state.user_args),
-    {ok, State#state{user_args = UserArgs}}.
+init([Callback, UserArgs0, Args]) ->
+    Targets = proplists:get_value(targets, Args, []),
+    {ok, UserArgs1} = Callback:init(UserArgs0),
+    {ok, #state{callback=Callback, user_args = UserArgs1, targets = Targets}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -152,7 +153,7 @@ handle_call(stop, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({msg, Msg}, State) ->
     Callback = State#state.callback,
-    {ok, UserArgs} = Callback:process(Msg, i_make_null_emit_fun(),
+    {ok, UserArgs} = Callback:process(Msg, i_make_emit_fun(State#state.targets),
                                       State#state.user_args),
     {noreply, State#state{user_args = UserArgs}}.
 
@@ -197,5 +198,13 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-i_make_null_emit_fun() ->
-    fun(_) -> ok end.
+i_make_emit_fun(Targets) ->
+    fun(Msg) -> lists:foreach(
+                  fun({Pid, all}) ->
+                          epc:multicast(Pid, Msg);
+                     ({Pid, random}) ->
+                          epc:randomcast(Pid, Msg);
+                     ({Pid, keyhash}) ->
+                          epc:keyhashcast(Pid, Msg)
+                  end, Targets)
+    end.
