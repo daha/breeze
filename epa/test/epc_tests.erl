@@ -212,7 +212,7 @@ create_epw_behaviour_stub() ->
     MockModule = epw_mock,
     ok = meck:new(MockModule),
     meck:expect(MockModule, init, fun([]) -> {ok, []} end),
-    meck:expect(MockModule, process, fun(_Msg, State) -> {ok, State} end),
+    meck:expect(MockModule, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
     meck:expect(MockModule, terminate, fun(_, State) -> State end),
     MockModule.
 

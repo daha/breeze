@@ -65,7 +65,7 @@ should_call_terminate_on_stop_test() ->
 
 behaviour_info_test() ->
     Expected = [{init,1},
-                {process, 2},
+                {process, 3},
                 {terminate,2}],
     Actual = epw:behaviour_info(callbacks),
     ?assertEqual(Expected, Actual),
@@ -101,7 +101,8 @@ should_call_process_([Pid, Mock, StateRef]) ->
     MessageRef = make_ref(),
     ok = epw:process(Pid, MessageRef),
     epw:sync(Pid), % Sync with the process to make sure it has processed
-    ?assert(meck:called(Mock, process, [MessageRef, StateRef])).
+    ?assertEqual(1, meck_improvements:count_calls_wildcard(
+                   Mock, process, [MessageRef, '_', StateRef])).
 
 % Helper functions
 setup() ->
@@ -118,7 +119,7 @@ create_mock() ->
     Mock = epw_mock,
     meck:new(Mock),
     meck:expect(Mock, init, fun(State) -> {ok, State} end),
-    meck:expect(Mock, process, fun(_Msg, State) -> {ok, State} end),
+    meck:expect(Mock, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
     meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
     Mock.
 

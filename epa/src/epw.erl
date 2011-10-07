@@ -67,7 +67,7 @@
 %%%===================================================================
 behaviour_info(callbacks) ->
     [{init,1},
-     {process, 2},
+     {process, 3},
      {terminate, 2}];
 behaviour_info(_Other) ->
     undefined.
@@ -137,7 +137,7 @@ handle_call(sync, _From, State) ->
     {reply, ok, State};
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
-    UserArgs = Callback:terminate(normal,  State#state.user_args),
+    UserArgs = Callback:terminate(normal, State#state.user_args),
     {stop, normal, {ok, UserArgs}, State}.
 
 %%--------------------------------------------------------------------
@@ -152,7 +152,8 @@ handle_call(stop, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({msg, Msg}, State) ->
     Callback = State#state.callback,
-    {ok, UserArgs} = Callback:process(Msg, State#state.user_args),
+    {ok, UserArgs} = Callback:process(Msg, i_make_null_emit_fun(),
+                                      State#state.user_args),
     {noreply, State#state{user_args = UserArgs}}.
 
 %%--------------------------------------------------------------------
@@ -196,3 +197,5 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+i_make_null_emit_fun() ->
+    fun(_) -> ok end.
