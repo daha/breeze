@@ -57,7 +57,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {sup_pid, workers = []}).
+-record(state, {sup_pid, workers = undefined}).
 
 %%%===================================================================
 %%% API
@@ -125,10 +125,12 @@ init([SupervisorPid]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({start_workers, NumberOfWorkers}, _From, State) ->
-    {ok, NewWorkers} = epw_sup:start_workers(State#state.sup_pid,
-					     NumberOfWorkers),
-    {reply, ok, State#state{workers = State#state.workers ++ NewWorkers}};
+handle_call({start_workers, NumberOfWorkers}, _From,
+            State = #state{workers = undefined}) ->
+    Workers = i_start_workers(State#state.sup_pid, NumberOfWorkers),
+    {reply, ok, State#state{workers = Workers}};
+handle_call({start_workers, _NumberOfWorkers}, _From, State) ->
+    {reply, {error, already_started}, State};
 handle_call(sync, _From, State) ->
     i_sync(State#state.workers),
     {reply, ok, State};
@@ -170,6 +172,9 @@ handle_cast(_Msg, State) ->
 handle_info({get_worker_sup, SupervisorPid}, State) ->
     {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(SupervisorPid),
     {noreply, State#state{sup_pid = WorkerSupPid}};
+handle_info({'DOWN', _Ref, process, Pid, _Info}, State0) ->
+    State1 = i_restart_worker(Pid, State0),
+    {noreply, State1};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -201,20 +206,31 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
 i_sync(Workers) ->
-    lists:foreach(fun(Pid) -> ok = epw:sync(Pid) end, Workers).
+    lists:foreach(fun({Pid,_}) -> ok = epw:sync(Pid) end, Workers).
 
 i_multicast(Workers, Msg) ->
-    lists:foreach(fun(Pid) -> epw:process(Pid, Msg) end, Workers).
+    lists:foreach(fun({Pid,_}) -> epw:process(Pid, Msg) end, Workers).
 
 i_randomcast(Workers, Msg) ->
     RandInt = random:uniform(length(Workers)),
-    WorkerPid = lists:nth(RandInt, Workers),
+    {WorkerPid, _} = lists:nth(RandInt, Workers),
     epw:process(WorkerPid, Msg).
 
 i_keyhashcast(Workers, Msg) ->
     Key = element(1, Msg),
     Hash = erlang:phash2(Key, length(Workers)) + 1,
-    WorkerPid = lists:nth(Hash, Workers),
+    {WorkerPid, _} = lists:nth(Hash, Workers),
     epw:process(WorkerPid, Msg).
+
+i_start_workers(SupPid, NumberOfWorkers) ->
+    {ok, Workers} = epw_sup:start_workers(SupPid, NumberOfWorkers),
+    i_monitor_workers(Workers).
+
+i_monitor_workers(Workers) ->
+    lists:map(fun(Pid) -> Ref = monitor(process, Pid), {Pid, Ref} end, Workers).
+
+i_restart_worker(OldPid, State) ->
+    [NewWorker] = i_start_workers(State#state.sup_pid, 1),
+    Workers = lists:keyreplace(OldPid, 1, State#state.workers, NewWorker),
+    State#state{workers = Workers}.

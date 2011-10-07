@@ -48,11 +48,15 @@ tests_with_mock_test_() ->
     {foreach, fun setup/0, fun teardown/1,
       [{with, [T]} || T <- [fun t_start_stop/1,
                             fun t_start_workers/1,
+                            fun t_should_not_allow_start_workers_once/1,
+                            fun t_restart_worker_when_it_crash/1,
+                            fun t_restarted_worker_should_keep_its_place/1,
                             fun t_multicast/1,
                             fun t_sync/1,
                             fun t_randomcast/1,
                             fun t_keyhashcast/1,
-                            fun t_keyhashcast_error/1]]}.
+                            fun t_keyhashcast_error/1
+                           ]]}.
 
 t_start_stop([Pid | _]) ->
     ?assertNot(undefined == process_info(Pid)).
@@ -60,9 +64,39 @@ t_start_stop([Pid | _]) ->
 t_start_workers([Pid, SupervisorPid | _]) ->
     WorkerSupPid = get_worker_sup_pid(SupervisorPid),
     ?assertEqual(ok, epc:start_workers(Pid, 2)),
-    ?assertMatch([_,_], supervisor:which_children(WorkerSupPid)),
-    ?assertEqual(ok, epc:start_workers(Pid, 1)),
-    ?assertMatch([_,_,_], supervisor:which_children(WorkerSupPid)).
+    ?assertMatch([_,_], supervisor:which_children(WorkerSupPid)).
+
+t_should_not_allow_start_workers_once([Pid, SupervisorPid | _ ]) ->
+    ok = epc:start_workers(Pid, 1),
+    ?assertEqual({error, already_started}, epc:start_workers(Pid, 1)),
+    ?assertMatch([_], get_workers(SupervisorPid)).
+
+t_restart_worker_when_it_crash([Pid, SupervisorPid | _]) ->
+    ok = epc:start_workers(Pid, 1),
+    [Worker] = get_workers(SupervisorPid),
+    Ref = monitor(process, Worker),
+    exit(Worker, crash),
+    receive {'DOWN', Ref, process, Worker, _Info} -> ok end,
+    ?assertMatch([_], get_workers(SupervisorPid)).
+
+t_restarted_worker_should_keep_its_place([Pid, SupervisorPid | _]) ->
+    ok = epc:start_workers(Pid, 2),
+    Workers = get_workers(SupervisorPid),
+    Msg1 = {foo, 1},
+    Msg2 = {bar, 2},
+    ok = epc:keyhashcast(Pid, Msg1),
+    ok = epc:sync(Pid),
+    [FirstWorker | _ ] = OrderedWorkers = order_workers(Workers, Msg1),
+    assert_workers_process_function_is_called(OrderedWorkers, [1, 0], Msg1),
+    Ref = monitor(process, FirstWorker),
+    exit(FirstWorker, crash),
+    receive {'DOWN', Ref, process, _, _} -> ok end,
+    Workers2 = get_workers(SupervisorPid),
+    [NewWorker] = Workers2 -- Workers,
+    OrderedWorkers2 = replace(OrderedWorkers, FirstWorker, NewWorker),
+    keyhashcast_and_assert(Pid, Msg1, OrderedWorkers2, [1, 0]),
+    keyhashcast_and_assert(Pid, Msg2, OrderedWorkers2, [0, 1]),
+    ok.
 
 t_multicast([Pid, SupervisorPid | _]) ->
     Msg = msg,
@@ -111,7 +145,9 @@ t_keyhashcast_error([Pid | _]) ->
     ?assertEqual({error, {not_a_valid_message, Msg}},
                  epc:keyhashcast(Pid, Msg)).
 
-should_seed_at_startuo_test() ->
+
+
+should_seed_at_startup_test() ->
     meck:new(random, [passthrough, unstick]),
     S = setup(),
     ?assertEqual(1, meck_improvements:count_calls_wildcard(
@@ -211,3 +247,9 @@ order_workers(Workers, Msg) ->
             lists:reverse(Workers)
     end.
 
+replace([Old | Rest], Old, New) ->
+    [New | Rest];
+replace([Other | Rest], Old, New) ->
+    [Other | replace(Rest, Old, New)];
+replace([], _Old, _New) ->
+    [].
