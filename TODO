@@ -1,13 +1,12 @@
-* Make the epw register with the epc when it is started and gets the
-  configuration as a reply.  epc stores it in a tuple (one element per
-  worker), this is to handle restarts and keyhashcasting.  epc needs
-  to cache data during a worker restart.
 * Configure how epw send the data to next epc
 * Add a builder module which connects all epc:s (configures the epc:s)
   - epc passes the informtion down to the children when they are
     started as args to the supervisor
-* epc monitors the workers and update its list when they restarted?
 * Route messages in epc to workers for
   * Hash on key X
+  * one worker per key, create workers dynamically when needed
+* Add a EmitFun to the process method, to be used to send data to next
+  processing unit.
 * Add loop detection, add timestamp when they enter the system.  That
   can also be used to measure the latency of the configuration.
+* add possibility for worker to give ets table to epc

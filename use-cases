@@ -1,0 +1,38 @@
+Use cases
+=========
+
+startup
+-------
+1. The user creates a config file or sets the application configuration
+2. start app
+3. master gen_server is started by the app_sup
+4. the gen server starts all epc:s
+5. The epc:s is configured with information of where to send its output
+6. The epc:s start their workers
+7. The start application call returns when all i started?
+
+the config is not valid
+-----------------------
+TO BE DONE
+
+initial start worker
+--------------------
+TO BE DONE
+
+how to configure the epc
+------------------------
+TO BE DONE
+
+worker dies, how it restarts
+-----------
+TO BE DONE
+
+one epc dies
+------------
+TO BE DONE
+
+configuration changes
+---------------------
+TO BE DONE
+
+
