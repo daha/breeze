@@ -24,12 +24,17 @@ Diagram over the processes:
                      /
                   N /
                  +-+
-      epw_sup -> | |
+      epc_sup -> | |
                1 +-+
-		/ |1
-               /  |
-	    1 /   |N
-	   +-+   +-+
-    epc -> | |   | | <- epw
-	   +-+   +-+
-
+		       / |1
+              /  |
+	       1 /   |1
+	      +-+   +-+
+   epc -> | |   | | <- epw_sup
+	      +-+   +-+
+	            1|
+	             |
+                N|  
+                +-+
+                | | <- epw
+                +-+
