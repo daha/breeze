@@ -47,7 +47,7 @@
 % Tests
 start_stop_test() ->
     Mock = create_mock(),
-    {ok, Pid} = epw:start_link(Mock, []),
+    {ok, Pid} = epw:start_link(Mock, [], []),
     ?assertNot(undefined == process_info(Pid)),
     {ok, _} = epw:stop(Pid),
     delete_mock(Mock).
@@ -107,7 +107,7 @@ should_call_process_([Pid, Mock, StateRef]) ->
 setup() ->
     Mock = create_mock(),
     StateRef = make_ref(),
-    {ok, Pid} = epw:start_link(Mock, StateRef),
+    {ok, Pid} = epw:start_link(Mock, [], StateRef),
     [Pid, Mock, StateRef].
 
 teardown([Pid, Mock | _]) ->

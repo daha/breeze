@@ -100,9 +100,9 @@ start_workers(Pid, NumberOfChildren) ->
 %% @end
 %%--------------------------------------------------------------------
 init([Module]) ->
-    ChildSpec = {worker, {epw, start_link, [Module, []]},
-                 transient, 5000, worker, [epw, Module]},
-    {ok,{{simple_one_for_one,0,1}, [ChildSpec]}}.
+    ChildSpec = {worker, {epw, start_link, [Module, [], []]},
+                 temporary, 5000, worker, [epw, Module]},
+    {ok,{{simple_one_for_one,100,1}, [ChildSpec]}}.
 
 %%%===================================================================
 %%% Internal functions

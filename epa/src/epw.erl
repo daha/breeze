@@ -46,7 +46,7 @@
 
 %% API
 -export([behaviour_info/1]).
--export([start_link/2]).
+-export([start_link/3]).
 -export([stop/1]).
 -export([process/2]).
 -export([sync/1]).
@@ -79,7 +79,7 @@ behaviour_info(_Other) ->
 %% @spec start_link(Callback, UserArgs) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Callback, UserArgs) ->
+start_link(Callback, _Args, UserArgs) ->
     gen_server:start_link(?MODULE, #state{callback=Callback, user_args = UserArgs}, []).
 
 stop(Pid) ->

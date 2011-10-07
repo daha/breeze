@@ -83,6 +83,18 @@ fail_to_start_worker_test() ->
      ?assertMatch({error, _Reason}, epw_sup:start_worker(Pid)),
      stop(Pid).
 
+workers_should_be_temporary_test() ->
+    Pid = start(),
+    {ok, [Pid1, _Pid2]} = epw_sup:start_workers(Pid, 2),
+    Ref = monitor(process, Pid1),
+    exit(Pid1, abnormal),
+    receive {'DOWN', Ref, process, Pid1, _Info} -> ok end,
+    Expected = [{specs,1},
+                {active,1},
+                {supervisors,0},
+                {workers,1}],
+    ?assertEqual(Expected, supervisor:count_children(Pid)).
+
 % internal
 start() ->
     start(epw_dummy).
