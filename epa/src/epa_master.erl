@@ -34,18 +34,31 @@
 %% OF THE POSSIBILITY OF SUCH DAMAGE.
 %%====================================================================
 
+%%-------------------------------------------------------------------
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
 %%
 %% @end
+%%
+%% @type worker_type() = WorkerType:: epw.
+%%
+%% @type distribution_type() = DistributionType:: all | random | keyhash.
+%%
+%% @type target() = {Name::atom(), distribution_type()}.
+%%
+%% @type worker() = {Name::atom(), worker_type(), Callback::atom(),
+%%                   NumberOfWorkers::integer(), [target()]}.
+%%
+%%-------------------------------------------------------------------
 
 -module(epa_master).
 
 -behaviour(gen_server).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
+-export([stop/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -66,8 +79,11 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], []).
+start_link(Config) when is_list(Config) ->
+    gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []).
+
+stop() ->
+    gen_server:call(?SERVER, stop).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -84,7 +100,9 @@ start_link() ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
+init([Config]) ->
+    Topology = proplists:get_value(topology, Config, []),
+    i_start_topology(Topology),
     {ok, #state{}}.
 
 %%--------------------------------------------------------------------
@@ -101,6 +119,8 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_call(stop, _From, State) ->
+    {stop, normal, ok, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -159,4 +179,36 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+i_start_topology(Topology) ->
+    {ok, EpcList} = i_start_all_epc(Topology),
+    i_connect_epcs(Topology, EpcList),
+    ok.
+
+i_start_all_epc(Topology) ->
+    EpcList = i_start_all_epc(Topology, _EpcList = []),
+    {ok, EpcList}.
+
+i_start_all_epc([{Name, epw, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
+    {ok, WorkerSup} = epw_sup_master:start_worker_sup(WorkerCallback),
+    {ok, Epc} = epc_sup:start_epc(WorkerSup),
+    i_start_all_epc(Rest, [{Name, Epc} | Acc]);
+i_start_all_epc([], Acc) ->
+    Acc.
+
+i_connect_epcs([{Name, epw, _Cb, _Children, Targets} | Rest], EpcList) ->
+    Pid = proplists:get_value(Name, EpcList),
+    i_connect_epcs_to_targets(Pid, Targets, EpcList),
+    i_connect_epcs(Rest, EpcList);
+i_connect_epcs([], _EpcList) ->
+    ok.
+
+i_connect_epcs_to_targets(_Pid, _NamedTargets = [], _EpcList) ->
+    ok;
+i_connect_epcs_to_targets(Pid, NamedTargets, EpcList) ->
+    Targets = lists:map(
+                   fun({Name, Type}) ->
+                           Pid = proplists:get_value(Name, EpcList),
+                           {Pid, Type}
+                   end, NamedTargets),
+    epc:set_targets(Pid, Targets).
 

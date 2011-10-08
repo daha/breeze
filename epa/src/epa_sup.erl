@@ -56,6 +56,9 @@
 %% Helper macro for declaring children of supervisor
 -define(CHILD(I, Type, Timeout),
         {I, {I, start_link, []}, permanent, Timeout, Type, [I]}).
+-define(CHILD(I, Args, Type, Timeout),
+        {I, {I, start_link, Args}, permanent, Timeout, Type, [I]}).
+
 
 %% ===================================================================
 %% API functions
@@ -98,9 +101,11 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+%%     Config = application:get_all_env(),
+    Config = [],
     ChildSpecs = [?CHILD(epc_sup, supervisor, infinity),
                   ?CHILD(epw_sup_master, supervisor, infinity),
-                  ?CHILD(epa_master, worker, 5000)],
+                  ?CHILD(epa_master, [Config], worker, 5000)],
     {ok, { {one_for_all, 0, 1}, ChildSpecs} }.
 
 %%%===================================================================

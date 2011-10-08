@@ -40,36 +40,67 @@
 %%
 %% @end
 
--module(epa_tests).
+-module(epa_master_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(APP, epa).
+-export([]).
 
-unload() ->
-    application:unload(?APP).
-stop(_) ->
-    application:stop(?APP).
+start_stop_test() ->
+    {ok, Pid} = epa_master:start_link([]),
+    ?assertNot(undefined == process_info(Pid)),
+    ?assertMatch(Pid when is_pid(Pid), whereis(epa_master)),
+    Ref = monitor(process, Pid),
+    ok = epa_master:stop(),
+    receive {'DOWN', Ref, process, _, _} -> ok end,
+    ?assert(undefined == process_info(Pid)),
+    ?assertEqual(undefined, whereis(epa_master)).
 
-start_stop_test_() ->
-    {foreach,
-     fun unload/0,
-     fun stop/1,
-     [?_test(t_start_app()),
-      ?_test(t_stop_app())]}.
+read_simple_config_and_start_epc_test() ->
+    mock(),
 
-t_start_app() ->
-    ok = application:start(?APP),
-    ?assertNot(undefined == whereis(epa_sup)).
+    WorkerCallback = epw_dummy,
+    Config = [{topology, [{dummy, epw, WorkerCallback, 2, []}]}],
 
-t_stop_app() ->
-    application:start(?APP),
-    ok = application:stop(?APP),
-    ?assert(undefined == whereis(epa_sup)).
+    {ok, _Pid} = epa_master:start_link(Config),
+
+    ?assert(meck:called(epw_sup_master, start_worker_sup, [WorkerCallback])),
+    ?assert(meck:called(epc_sup, start_epc, [self()])),
+    teardown().
+
+read_config_with_two_connected_epcs_test() ->
+    mock(),
+
+    SenderCallback = sender_callback,
+    ReceiverCallback = receiver_callback,
+    Config = [{topology, [{sender, epw, SenderCallback, 2, [{receiver, all}]},
+                          {receiver, epw, ReceiverCallback, 2, []}
+                         ]
+              }],
+
+    {ok, _Pid} = epa_master:start_link(Config),
+
+    ?assert(meck:called(epw_sup_master, start_worker_sup, [SenderCallback])),
+    ?assert(meck:called(epw_sup_master, start_worker_sup, [ReceiverCallback])),
+    ?assertEqual(2, meck_improvements:count_calls(epc_sup, start_epc, [self()])),
+    ?assert(meck:called(epc, set_targets, [self(), [{self(), all}]])),
+    teardown().
 
 %% Internal functions
-%% set_config([{Key, Val} | Rest]) ->
-%%     application:set_env(?APP, Key, Val),
-%%     set_config(Rest);
-%% set_config([]) ->
-%%     ok.
+mock() ->
+    meck:new(epw_sup_master),
+    meck:new(epc_sup),
+    meck:new(epc),
+    meck:expect(epw_sup_master, start_worker_sup, 1, {ok, self()}),
+    meck:expect(epc_sup, start_epc, 1, {ok, self()}),
+    meck:expect(epc, set_targets, 2, ok).
+
+teardown() ->
+    unload_mocks(),
+    epa_master:stop().
+
+unload_mocks() ->
+    meck:unload(epc),
+    meck:unload(epc_sup),
+    meck:unload(epw_sup_master).
+
