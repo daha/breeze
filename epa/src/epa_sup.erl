@@ -46,6 +46,7 @@
 
 %% API
 -export([start_link/0]).
+-export([stop/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -53,7 +54,8 @@
 -define(SERVER, ?MODULE).
 
 %% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+-define(CHILD(I, Type, Timeout),
+        {I, {I, start_link, []}, permanent, Timeout, Type, [I]}).
 
 %% ===================================================================
 %% API functions
@@ -68,6 +70,15 @@
 %%--------------------------------------------------------------------
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+
+stop() ->
+    case whereis(?SERVER) of
+        undefined ->
+            ok;
+        Pid ->
+            true = exit(Pid, normal)
+    end,
+    ok.
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -87,7 +98,9 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, []} }.
+    ChildSpecs = [?CHILD(epc_sup, supervisor, infinity),
+                   ?CHILD(epw_sup_master, supervisor, infinity)],
+    {ok, { {one_for_all, 0, 1}, ChildSpecs} }.
 
 %%%===================================================================
 %%% Internal functions
