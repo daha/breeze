@@ -82,10 +82,12 @@ validate_module_test() ->
 
 mocked_tests_test_() ->
     {foreach, fun setup/0, fun teardown/1,
-     [{with, [T]} || T <- [fun should_call_init_/1,
-                           fun should_handle_sync_/1,
-                           fun should_call_process_/1
-                          ]]}.
+     [{with, [T]} ||
+	 T <- [fun should_call_init_/1,
+	       fun should_handle_sync_/1,
+	       fun should_call_process_/1,
+	       fun should_not_crash_on_random_data_to_gen_server_callbacks_/1
+	      ]]}.
 
 should_call_init_([_Pid, Mock, StateRef]) ->
     ?assert(meck:called(Mock, init, [StateRef])).
@@ -103,6 +105,12 @@ should_call_process_([Pid, Mock, StateRef]) ->
     epw:sync(Pid), % Sync with the process to make sure it has processed
     ?assertEqual(1, meck_improvements:calls_wildcard(
                    Mock, process, [MessageRef, '_', StateRef])).
+
+should_not_crash_on_random_data_to_gen_server_callbacks_([Pid|_]) ->
+    RandomData = {make_ref(), now(), foo, [self()]},
+    gen_server:cast(Pid, RandomData),
+    Pid ! RandomData,
+    gen_server:call(Pid, RandomData).
 
 verify_emitted_message_is_multicasted_to_all_targets_test() ->
     verify_emitted_message_is_sent_to_all_targets(multicast, all).

@@ -108,6 +108,15 @@ get_epc_by_name_test() ->
     ?assertEqual({ok, EpcPid}, epa_master:get_controller(WorkerName)),
     teardown().
 
+should_not_crash_on_random_data_to_gen_server_callbacks_test() ->
+    {ok, Pid} = epa_master:start_link([]),
+    RandomData = {make_ref(), now(), foo, [self()]},
+    gen_server:cast(Pid, RandomData),
+    Pid ! RandomData,
+    gen_server:call(Pid, RandomData),
+    epa_master:stop().
+
+
 %
 % Config check tests
 %

@@ -143,7 +143,7 @@ handle_call(sync, _From, State) ->
     i_sync(State#state.workers),
     {reply, ok, State};
 handle_call(_Request, _From, State) ->
-    {reply, ok, State}.
+    {reply, error, State}.
 
 %%--------------------------------------------------------------------
 %% @private

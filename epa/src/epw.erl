@@ -139,7 +139,9 @@ handle_call(sync, _From, State) ->
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
     UserArgs = Callback:terminate(normal, State#state.user_args),
-    {stop, normal, {ok, UserArgs}, State}.
+    {stop, normal, {ok, UserArgs}, State};
+handle_call(_Request, _From, State) ->
+    {reply, error, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -155,7 +157,9 @@ handle_cast({msg, Msg}, State) ->
     Callback = State#state.callback,
     {ok, UserArgs} = Callback:process(Msg, i_make_emit_fun(State#state.targets),
                                       State#state.user_args),
-    {noreply, State#state{user_args = UserArgs}}.
+    {noreply, State#state{user_args = UserArgs}};
+handle_cast(_Msg, State) ->
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private

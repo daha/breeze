@@ -135,8 +135,7 @@ handle_call({get_controller, Name}, _From, State) ->
     Result = i_get_controller(Name, State#state.controller_list),
     {reply, Result, State};
 handle_call(_Request, _From, State) ->
-    Reply = ok,
-    {reply, Reply, State}.
+    {reply, error, State}.
 
 %%--------------------------------------------------------------------
 %% @private
