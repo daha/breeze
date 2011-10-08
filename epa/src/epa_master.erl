@@ -213,8 +213,8 @@ i_connect_epcs_to_targets(_Pid, _NamedTargets = [], _EpcList) ->
 i_connect_epcs_to_targets(Pid, NamedTargets, EpcList) ->
     Targets = lists:map(
                    fun({Name, Type}) ->
-                           Pid = proplists:get_value(Name, EpcList),
-                           {Pid, Type}
+                           NamePid = proplists:get_value(Name, EpcList),
+                           {NamePid, Type}
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
 

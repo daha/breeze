@@ -57,7 +57,7 @@ start_stop_test() ->
     ?assertEqual(undefined, whereis(epa_master)).
 
 read_simple_config_and_start_epc_test() ->
-    mock(),
+    {WorkerSup, [EpcPid|_]} = mock(),
 
     WorkerCallback = epw_dummy,
     NumberOfWorkers = 2,
@@ -66,20 +66,21 @@ read_simple_config_and_start_epc_test() ->
     {ok, _Pid} = epa_master:start_link(Config),
 
     ?assert(meck:called(epw_supersup, start_worker_sup, [WorkerCallback])),
-    ?assert(meck:called(epc_sup, start_epc, [self()])),
+    ?assert(meck:called(epc_sup, start_epc, [WorkerSup])),
     ?assertNot(meck:called(epc, set_targets, [])),
-    ?assert(meck:called(epc, start_workers, [self(), NumberOfWorkers])),
+    ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers])),
     teardown().
 
 read_config_with_two_connected_epcs_test() ->
-    mock(),
+    {WorkerSup, [EpcPid1, EpcPid2 | _]} = mock(),
     SenderCallback = sender_callback,
     ReceiverCallback = receiver_callback,
     SenderWorkers = 2,
     ReceiverWorkers = 3,
     mock_epw_callback(SenderCallback),
     mock_epw_callback(ReceiverCallback),
-    Config = [{topology, [{sender, epw, SenderCallback, SenderWorkers, [{receiver, all}]},
+    Config = [{topology, [{sender, epw, SenderCallback, SenderWorkers,
+			   [{receiver, all}]},
                           {receiver, epw, ReceiverCallback, ReceiverWorkers, []}
                          ]
               }],
@@ -88,10 +89,10 @@ read_config_with_two_connected_epcs_test() ->
 
     ?assert(meck:called(epw_supersup, start_worker_sup, [SenderCallback])),
     ?assert(meck:called(epw_supersup, start_worker_sup, [ReceiverCallback])),
-    ?assertEqual(2, meck_improvements:calls(epc_sup, start_epc, [self()])),
-    ?assert(meck:called(epc, set_targets, [self(), [{self(), all}]])),
-    ?assert(meck:called(epc, start_workers, [self(), SenderWorkers])),
-    ?assert(meck:called(epc, start_workers, [self(), ReceiverWorkers])),
+    ?assertEqual(2, meck_improvements:calls(epc_sup, start_epc, [WorkerSup])),
+    ?assert(meck:called(epc, set_targets, [EpcPid1, [{EpcPid2, all}]])),
+    ?assert(meck:called(epc, start_workers, [EpcPid1, SenderWorkers])),
+    ?assert(meck:called(epc, start_workers, [EpcPid2, ReceiverWorkers])),
     meck:unload(SenderCallback),
     meck:unload(ReceiverCallback),
     teardown().
@@ -204,7 +205,8 @@ invalid_topology_worker_type_test() ->
                  epa_master:start_link(InvalidWorkerType)).
 
 invalid_topology_worker_callback_module_test() ->
-    InvalidWorkerCallbackModule = [{topology, [{name, epw, invalid_callback, 1, []}]}],
+    InvalidWorkerCallbackModule = [{topology, [{name, epw, invalid_callback, 1,
+						[]}]}],
     ?assertEqual({error, {invalid_worker_callback_module, invalid_callback}},
                  epa_master:start_link(InvalidWorkerCallbackModule)).
 
@@ -213,15 +215,20 @@ mock() ->
     meck:new(epw_supersup),
     meck:new(epc_sup),
     meck:new(epc),
-    meck:expect(epw_supersup, start_worker_sup, 1, {ok, self()}),
-    meck:expect(epc_sup, start_epc, 1, {ok, self()}),
+    WorkerSup = create_pid(),
+    EpcPids = lists:map(fun(_) -> create_pid() end, lists:seq(1, 3)),
+    StartEpcRetVal = lists:zip(lists:duplicate(length(EpcPids), ok), EpcPids),
+    meck:expect(epw_supersup, start_worker_sup, 1, {ok, WorkerSup}),
+    meck:sequence(epc_sup, start_epc, 1, StartEpcRetVal),
     meck:expect(epc, set_targets, 2, ok),
-    meck:expect(epc, start_workers, 2, ok).
+    meck:expect(epc, start_workers, 2, ok),
+    {WorkerSup, EpcPids}.
 
 mock_epw_callback(CallbackModule) ->
     meck:new(CallbackModule),
     meck:expect(CallbackModule, init, fun(State) -> {ok, State} end),
-    meck:expect(CallbackModule, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
+    meck:expect(CallbackModule, process,
+		fun(_Msg, _EmitFun, State) -> {ok, State} end),
     meck:expect(CallbackModule, terminate, fun(_Reason, State) -> State end).
 
 teardown() ->
@@ -232,3 +239,6 @@ unload_mocks() ->
     meck:unload(epc),
     meck:unload(epc_sup),
     meck:unload(epw_supersup).
+
+create_pid() ->
+     spawn(fun() -> timer:sleep(infinity) end).
