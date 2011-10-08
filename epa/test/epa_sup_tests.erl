@@ -57,9 +57,9 @@ start_stop_test() ->
 
 should_start_children_test() ->
     {ok, Pid} = epa_sup:start_link(),
-    Expected0 = [{specs,2},
-                 {active,2},
+    Expected0 = [{specs,3},
+                 {active,3},
                  {supervisors,2},
-                 {workers,0}],
+                 {workers,1}],
     ?assertEqual(Expected0, supervisor:count_children(Pid)),
     epa_sup:stop().

@@ -99,7 +99,8 @@ stop() ->
 %%--------------------------------------------------------------------
 init([]) ->
     ChildSpecs = [?CHILD(epc_sup, supervisor, infinity),
-                   ?CHILD(epw_sup_master, supervisor, infinity)],
+                  ?CHILD(epw_sup_master, supervisor, infinity),
+                  ?CHILD(epa_master, worker, 5000)],
     {ok, { {one_for_all, 0, 1}, ChildSpecs} }.
 
 %%%===================================================================

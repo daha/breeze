@@ -11,11 +11,17 @@ startup
 6. The master ask the epc:s to start their workers
 7. The start application call returns when all i started?
 
+2. start app
+------------
+1. App start the app_sup
+2. The app sup starts:
+   * One worker supervisor supervisor (epw_sup_master)
+   * One controller supervisor (epc_sup)
+   * epa master
+
 3. master is started
 -------------------------------
-1. The master starts 2 simple_one_on_one supervisors
-   * One worker supervisor supervisor
-   * One controller supervisor
+
 
 4. The gen_server starts all epc:s
 ----------------------------------
