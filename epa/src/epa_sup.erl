@@ -101,8 +101,7 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-%%     Config = application:get_all_env(),
-    Config = [],
+    Config = application:get_all_env(),
     ChildSpecs = [?CHILD(epc_sup, supervisor, infinity),
                   ?CHILD(epw_supersup, supervisor, infinity),
                   ?CHILD(epa_master, [Config], worker, 5000)],

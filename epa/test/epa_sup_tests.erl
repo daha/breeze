@@ -63,3 +63,21 @@ should_start_children_test() ->
                  {workers, 1}],
     ?assertEqual(Expected0, supervisor:count_children(Pid)),
     epa_sup:stop().
+
+should_get_application_env_test() ->
+    meck:new(application, [unstick, passthrough]),
+    {ok, _Pid} = epa_sup:start_link(),
+    ?assert(meck:called(application, get_all_env, [])),
+    meck:unload(application),
+    epa_sup:stop().
+
+should_pass_application_config_to_epa_master_test() ->
+    meck:new(application, [unstick, passthrough]),
+    meck:new(epa_master, [passthrough]),
+    Config = [{topology, []}],
+    meck:expect(application, get_all_env, 0, Config),
+    {ok, _Pid} = epa_sup:start_link(),
+    ?assert(meck:called(epa_master, start_link, [Config])),
+    meck:unload(application),
+    meck:unload(epa_master),
+    epa_sup:stop().
