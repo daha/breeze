@@ -77,7 +77,7 @@ behaviour_info(_Other) ->
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(Callback, UserArgs) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(Callback, UserArgs, Args) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link(Callback, UserArgs, Args) ->

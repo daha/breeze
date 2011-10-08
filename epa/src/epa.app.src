@@ -1,12 +1,9 @@
 {application, epa,
  [
-  {description, ""},
-  {vsn, "1"},
-  {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib
-                 ]},
+  {description, "An event processing application"},
+  {vsn, "0.1.0"},
+  {registered, [epa_master, epc_sup, epw_supersup]},
+  {applications, []},
   {mod, { epa_app, []}},
   {env, []}
  ]}.

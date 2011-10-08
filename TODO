@@ -4,7 +4,9 @@
 * Route messages in epc to workers for
   * Hash on key X
   * one worker per key, create workers dynamically when needed
-* Add loop detection, add timestamp when they enter the system.  That
-  can also be used to measure the latency of the configuration.
-* add possibility for worker to give ets table to epc
+* Add loop detection when verifying the topology
+* add possibility for worker to give ets table to epc, requires the
+  epc to be passed as an argument in init
 * Add infinity to all gen_server:calls
+* catch errors from the epw behaviour implementations?
+* Extract the common code from the sup tests

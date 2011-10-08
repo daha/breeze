@@ -70,7 +70,7 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(Name, SupervisorPid) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(WorkerSup) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link(WorkerSup) ->
