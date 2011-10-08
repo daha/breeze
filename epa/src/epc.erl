@@ -47,6 +47,8 @@
 
 %% API
 -export([start_link/1]).
+-export([stop/1]).
+
 -export([set_targets/2]).
 -export([start_workers/2]).
 
@@ -75,6 +77,9 @@
 %%--------------------------------------------------------------------
 start_link(WorkerSup) ->
     gen_server:start_link(?MODULE, [WorkerSup], []).
+
+stop(Server) ->
+    gen_server:call(Server, stop).
 
 set_targets(Server, Targets) when is_list(Targets) ->
     gen_server:call(Server, {set_targets, Targets}).
@@ -142,6 +147,8 @@ handle_call({set_targets, Targets}, _From, State) ->
 handle_call(sync, _From, State) ->
     i_sync(State#state.workers),
     {reply, ok, State};
+handle_call(stop, _From, State) ->
+    {stop, normal, ok, State};
 handle_call(_Request, _From, State) ->
     {reply, error, State}.
 
