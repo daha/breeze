@@ -80,7 +80,12 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Config) when is_list(Config) ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []).
+    case i_check_config_syntax(Config) of
+        ok ->
+            gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []);
+        Error ->
+            Error
+    end.
 
 stop() ->
     gen_server:call(?SERVER, stop).
@@ -212,3 +217,136 @@ i_connect_epcs_to_targets(Pid, NamedTargets, EpcList) ->
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
 
+i_check_config_syntax(Config) ->
+    Topology = proplists:get_value(topology, Config, []),
+    i_check_all(Topology, [fun i_check_topology_syntax/1,
+                           fun i_check_topology_duplicated_names/1,
+                           fun i_check_topology_target_references/1,
+                           fun i_check_topology_target_reference_types/1,
+                           fun i_check_topology_worker_types/1,
+                           fun i_check_worker_callback_module/1
+                           ]).
+
+i_check_all(Topology, [CheckFun | CheckFuns]) ->
+    case CheckFun(Topology) of
+        ok ->
+            i_check_all(Topology, CheckFuns);
+        Error ->
+            Error
+    end;
+i_check_all(_Topology, []) ->
+    ok.
+
+
+% i_check_topology_syntax/1
+i_check_topology_syntax([Worker|Rest]) when is_tuple(Worker) ->
+    case i_check_worker_tuple(Worker) of
+        ok ->
+            i_check_topology_syntax(Rest);
+        Error ->
+            Error
+    end;
+i_check_topology_syntax([InvalidWorker|_Rest]) ->
+    {error, {invalid_topology_syntax, InvalidWorker}};
+i_check_topology_syntax([]) ->
+    ok.
+
+i_check_worker_tuple({Name, Type, WorkerCallback, NumWorkers, Targets}) when
+      is_atom(Name) andalso
+      is_atom(Type) andalso
+      is_atom(WorkerCallback) andalso
+      is_integer(NumWorkers) andalso
+      is_list(Targets) ->
+    i_check_targets(Targets);
+i_check_worker_tuple(Tuple) ->
+    {error, {invalid_topology_syntax, Tuple}}.
+
+i_check_targets([{Name, Type}|Rest]) when is_atom(Name) andalso is_atom(Type) ->
+    i_check_targets(Rest);
+i_check_targets([InvalidTarget|_Rest]) ->
+    {error, {invalid_topology_target_syntax, InvalidTarget}};
+i_check_targets([]) ->
+    ok.
+
+% i_check_topology_duplicated_names/1
+i_check_topology_duplicated_names(Topology) ->
+   i_check_topology_duplicated_names(Topology, _ValidNames = []).
+
+i_check_topology_duplicated_names([{Name, _,_,_,_} | Rest], ValidNames) ->
+    case lists:member(Name, ValidNames) of
+        true ->
+            {error, duplicated_worker_name};
+        _ ->
+            i_check_topology_duplicated_names(Rest, [Name | ValidNames])
+    end;
+i_check_topology_duplicated_names([], _ValidNames) ->
+    ok.
+
+% i_check_topology_target_references/1
+i_check_topology_target_references(Topology) ->
+    i_check_topology_target_references(Topology, []).
+
+i_check_topology_target_references([{Name, _,_,_,Targets} | Rest], ConsumedNames) ->
+    ValidNames = ConsumedNames ++ i_extract_names(Rest),
+    case i_check_target_names_is_valid(Targets, ValidNames) of
+        ok ->
+            i_check_topology_target_references(Rest, [Name | ConsumedNames]);
+        Error ->
+            Error
+    end;
+i_check_topology_target_references([], _) ->
+    ok.
+
+i_check_target_names_is_valid([], _ValidNames) ->
+    ok;
+i_check_target_names_is_valid([{TargetName, _} | Rest], ValidNames) ->
+    case lists:member(TargetName, ValidNames) of
+        true ->
+            i_check_target_names_is_valid(Rest, ValidNames);
+        _ ->
+            {error, {invalid_target_ref, TargetName}}
+    end.
+
+i_extract_names(List) ->
+    lists:map(fun(Worker) -> element(1, Worker) end, List).
+
+% i_check_topology_target_reference_types/1
+i_check_topology_target_reference_types([{_, _,_,_,Targets} | Rest]) ->
+    case i_check_target_types(Targets) of
+        ok ->
+            i_check_topology_target_reference_types(Rest);
+        Error ->
+            Error
+    end;
+i_check_topology_target_reference_types([]) ->
+    ok.
+
+i_check_target_types([{_, all} |Rest]) ->
+    i_check_target_types(Rest);
+i_check_target_types([{_, random} | Rest]) ->
+    i_check_target_types(Rest);
+i_check_target_types([{_, keyhash} | Rest]) ->
+    i_check_target_types(Rest);
+i_check_target_types([{_, InvalidType} | _Rest]) ->
+    {error, {invalid_target_ref_type, InvalidType}};
+i_check_target_types([]) ->
+    ok.
+
+% i_check_topology_worker_types/1
+i_check_topology_worker_types([{_,epw,_,_,_} | Rest]) ->
+    i_check_topology_worker_types(Rest);
+i_check_topology_worker_types([{_, InvalidWorkerType, _, _, _} | _Rest]) ->
+    {error, {invalid_worker_type, InvalidWorkerType}};
+i_check_topology_worker_types([]) ->
+    ok.
+
+% i_check_worker_callback_module/1
+i_check_worker_callback_module([{_, epw, WorkerCallback, _, _} | Rest]) ->
+    case epw:validate_module(WorkerCallback) of
+        true ->
+            i_check_worker_callback_module(Rest);
+        _ ->
+            {error, {invalid_worker_callback_module, WorkerCallback}}
+    end;
+i_check_worker_callback_module([]) ->
+    ok.
