@@ -93,7 +93,7 @@ should_call_init_([_Pid, Mock, StateRef]) ->
 should_handle_sync_([Pid | _]) ->
     meck:new(epw, [passthrough]),
     ok = epw:sync(Pid),
-    ?assertEqual(1, meck_improvements:count_calls_wildcard(
+    ?assertEqual(1, meck_improvements:calls_wildcard(
 		      epw, handle_call, [sync | '_'])),
     meck:unload(epw).
 
@@ -101,7 +101,7 @@ should_call_process_([Pid, Mock, StateRef]) ->
     MessageRef = make_ref(),
     ok = epw:process(Pid, MessageRef),
     epw:sync(Pid), % Sync with the process to make sure it has processed
-    ?assertEqual(1, meck_improvements:count_calls_wildcard(
+    ?assertEqual(1, meck_improvements:calls_wildcard(
                    Mock, process, [MessageRef, '_', StateRef])).
 
 verify_emitted_message_is_multicasted_to_all_targets_test() ->

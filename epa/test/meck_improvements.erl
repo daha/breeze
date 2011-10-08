@@ -43,50 +43,50 @@
 -module(meck_improvements).
 
 %% API
--export([count_calls/3]).
--export([count_calls_wildcard/3]).
+-export([calls/3]).
+-export([calls_wildcard/3]).
 
 %%%===================================================================
 %%% API functions
 %%%===================================================================
-count_calls(Mod, Fun, Args) ->
-    i_count_calls({Mod, Fun, Args}, meck:history(Mod), 0).
-count_calls_wildcard(Mod, Fun, Args) ->
-    i_count_calls_wildcard({Mod, Fun, Args}, meck:history(Mod), 0).
+calls(Mod, Fun, Args) ->
+    i_calls({Mod, Fun, Args}, meck:history(Mod), 0).
+calls_wildcard(Mod, Fun, Args) ->
+    i_calls_wildcard({Mod, Fun, Args}, meck:history(Mod), 0).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-i_count_calls({_M, _F, _A}, [], Count) -> Count;
-i_count_calls({M, F, A}, [{{M, F, A}, _Result} | Rest], Count) ->
-    i_count_calls({M, F, A}, Rest, Count + 1);
-i_count_calls({M, F, A}, [{{M, F, A}, _ExType, _Exp, _Stack} | Rest], Count) ->
-    i_count_calls({M, F, A}, Rest, Count + 1);
-i_count_calls({M, F, A}, [_Call | Rest], Count) ->
-    i_count_calls({M, F, A}, Rest, Count).
+i_calls({_M, _F, _A}, [], Count) -> Count;
+i_calls({M, F, A}, [{{M, F, A}, _Result} | Rest], Count) ->
+    i_calls({M, F, A}, Rest, Count + 1);
+i_calls({M, F, A}, [{{M, F, A}, _ExType, _Exp, _Stack} | Rest], Count) ->
+    i_calls({M, F, A}, Rest, Count + 1);
+i_calls({M, F, A}, [_Call | Rest], Count) ->
+    i_calls({M, F, A}, Rest, Count).
 
 
-i_count_calls_wildcard({_M, _F, _A}, [], Count) -> Count;
-i_count_calls_wildcard({M, F, A}, [{{M, F, A}, _Result} | Rest], Count) ->
-    i_count_calls_wildcard({M, F, A}, Rest, Count + 1);
-i_count_calls_wildcard({M, F, A}, [{{M, F, A}, _ExType, _Exp, _Stack} | Rest], Count) ->
-    i_count_calls_wildcard({M, F, A}, Rest, Count + 1);
-i_count_calls_wildcard({M, F, A1}, [{{M, F, A2}, _Result} | Rest], Count) ->
+i_calls_wildcard({_M, _F, _A}, [], Count) -> Count;
+i_calls_wildcard({M, F, A}, [{{M, F, A}, _Result} | Rest], Count) ->
+    i_calls_wildcard({M, F, A}, Rest, Count + 1);
+i_calls_wildcard({M, F, A}, [{{M, F, A}, _ExType, _Exp, _Stack} | Rest], Count) ->
+    i_calls_wildcard({M, F, A}, Rest, Count + 1);
+i_calls_wildcard({M, F, A1}, [{{M, F, A2}, _Result} | Rest], Count) ->
     case i_match_args(A1, A2) of
         true ->
-            i_count_calls_wildcard({M, F, A1}, Rest, Count + 1);
+            i_calls_wildcard({M, F, A1}, Rest, Count + 1);
         false ->
-            i_count_calls_wildcard({M, F, A1}, Rest, Count)
+            i_calls_wildcard({M, F, A1}, Rest, Count)
     end;
-i_count_calls_wildcard({M, F, A1}, [{{M, F, A2}, _ExType, _Exp, _Stack} | Rest], Count) ->
+i_calls_wildcard({M, F, A1}, [{{M, F, A2}, _ExType, _Exp, _Stack} | Rest], Count) ->
     case i_match_args(A1, A2) of
         true ->
-            i_count_calls_wildcard({M, F, A1}, Rest, Count + 1);
+            i_calls_wildcard({M, F, A1}, Rest, Count + 1);
         false ->
-            i_count_calls_wildcard({M, F, A1}, Rest, Count)
+            i_calls_wildcard({M, F, A1}, Rest, Count)
     end;
-i_count_calls_wildcard({M, F, A}, [_Call | Rest], Count) ->
-    i_count_calls_wildcard({M, F, A}, Rest, Count).
+i_calls_wildcard({M, F, A}, [_Call | Rest], Count) ->
+    i_calls_wildcard({M, F, A}, Rest, Count).
 
 i_match_args(A, A) ->
     true;

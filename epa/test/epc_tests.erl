@@ -147,13 +147,13 @@ t_config_with_one_epc_target([Pid1, _WorkerSup1, MockModule | _]) ->
     ok = epc:set_targets(Pid1, Targets),
     ok = epc:start_workers(Pid1, 1),
     ?assert(meck:validate(epw)),
-    ?assertEqual(1, meck_improvements:count_calls(
+    ?assertEqual(1, meck_improvements:calls(
                    epw, start_link, [MockModule, [], [{targets, Targets}]])).
 
 should_seed_at_startup_test() ->
     meck:new(random, [passthrough, unstick]),
     S = setup(),
-    ?assertEqual(1, meck_improvements:count_calls_wildcard(
+    ?assertEqual(1, meck_improvements:calls_wildcard(
 		      random, seed, ['_', '_', '_'])),
     teardown(S),
     meck:unload(random).
@@ -181,14 +181,14 @@ keyhashcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
 assert_workers_process_function_is_called(Workers, ExpectedList, Msg) ->
     lists:foreach(
       fun({Worker, Expected}) ->
-              ?assertEqual(Expected, meck_improvements:count_calls(
+              ?assertEqual(Expected, meck_improvements:calls(
                              epw, process, [Worker, Msg]))
       end, lists:zip(Workers, ExpectedList)).
 
 assert_workers_random_and_process(Workers, ExpectedList, Msg) ->
     NumberOfWorkers = length(Workers),
     ExpectedRandomUniformCalls = lists:sum(ExpectedList),
-    ?assertEqual(ExpectedRandomUniformCalls, meck_improvements:count_calls(
+    ?assertEqual(ExpectedRandomUniformCalls, meck_improvements:calls(
                    random, uniform, [NumberOfWorkers])),
     assert_workers_process_function_is_called(Workers, ExpectedList, Msg).
 
@@ -230,7 +230,7 @@ get_workers(WorkerSup) ->
 
 % Put the worker that receive the first process call first in the list
 order_workers(Workers, Msg) ->
-    case meck_improvements:count_calls(epw, process, [hd(Workers), Msg]) of
+    case meck_improvements:calls(epw, process, [hd(Workers), Msg]) of
         1 ->
             Workers;
         _ -> % Reverse the order

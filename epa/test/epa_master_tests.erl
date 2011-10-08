@@ -88,7 +88,7 @@ read_config_with_two_connected_epcs_test() ->
 
     ?assert(meck:called(epw_supersup, start_worker_sup, [SenderCallback])),
     ?assert(meck:called(epw_supersup, start_worker_sup, [ReceiverCallback])),
-    ?assertEqual(2, meck_improvements:count_calls(epc_sup, start_epc, [self()])),
+    ?assertEqual(2, meck_improvements:calls(epc_sup, start_epc, [self()])),
     ?assert(meck:called(epc, set_targets, [self(), [{self(), all}]])),
     ?assert(meck:called(epc, start_workers, [self(), SenderWorkers])),
     ?assert(meck:called(epc, start_workers, [self(), ReceiverWorkers])),
