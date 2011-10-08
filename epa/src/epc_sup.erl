@@ -101,7 +101,7 @@ init([]) ->
     ChildSpec = {controller,
                  {epc, start_link, []},
                  transient, 10000, worker, [epc]},
-    {ok,{{simple_one_for_one,0,1}, [ChildSpec]}}.
+    {ok, {{simple_one_for_one, 0, 1}, [ChildSpec]}}.
 
 %% ====================================================================
 %% Internal functions

@@ -105,7 +105,7 @@ stop() ->
 init([]) ->
     ChildSpec = {worker_sup, {epw_sup, start_link, []},
                  transient, infinity, supervisor, [epw_sup]},
-    {ok,{{simple_one_for_one,0,1}, [ChildSpec]}}.
+    {ok, {{simple_one_for_one, 0, 1}, [ChildSpec]}}.
 
 %%%===================================================================
 %%% Internal functions

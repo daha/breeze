@@ -212,10 +212,10 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 i_sync(Workers) ->
-    lists:foreach(fun({Pid,_}) -> ok = epw:sync(Pid) end, Workers).
+    lists:foreach(fun({Pid, _}) -> ok = epw:sync(Pid) end, Workers).
 
 i_multicast(Workers, Msg) ->
-    lists:foreach(fun({Pid,_}) -> epw:process(Pid, Msg) end, Workers).
+    lists:foreach(fun({Pid, _}) -> epw:process(Pid, Msg) end, Workers).
 
 i_randomcast(Workers, Msg) ->
     RandInt = random:uniform(length(Workers)),

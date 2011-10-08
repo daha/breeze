@@ -64,7 +64,7 @@ t_start_stop([Pid | _]) ->
 
 t_start_workers([Pid, WorkerSup | _]) ->
     ?assertEqual(ok, epc:start_workers(Pid, 2)),
-    ?assertMatch([_,_], supervisor:which_children(WorkerSup)).
+    ?assertMatch([_, _], supervisor:which_children(WorkerSup)).
 
 t_should_not_allow_start_workers_once([Pid, WorkerSup | _ ]) ->
     ok = epc:start_workers(Pid, 1),
@@ -148,13 +148,13 @@ t_config_with_one_epc_target([Pid1, _WorkerSup1, MockModule | _]) ->
     ok = epc:start_workers(Pid1, 1),
     ?assert(meck:validate(epw)),
     ?assertEqual(1, meck_improvements:count_calls(
-                   epw, start_link, [MockModule, [], [{targets,Targets}]])).
+                   epw, start_link, [MockModule, [], [{targets, Targets}]])).
 
 should_seed_at_startup_test() ->
     meck:new(random, [passthrough, unstick]),
     S = setup(),
     ?assertEqual(1, meck_improvements:count_calls_wildcard(
-		      random, seed, ['_','_','_'])),
+		      random, seed, ['_', '_', '_'])),
     teardown(S),
     meck:unload(random).
 

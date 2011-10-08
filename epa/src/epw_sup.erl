@@ -106,7 +106,7 @@ start_workers(Pid, NumberOfChildren, Opts) ->
 init([Module]) ->
     ChildSpec = {worker, {epw, start_link, [Module, []]},
                  temporary, 5000, worker, [epw, Module]},
-    {ok,{{simple_one_for_one,100,1}, [ChildSpec]}}.
+    {ok, {{simple_one_for_one, 100, 1}, [ChildSpec]}}.
 
 %%%===================================================================
 %%% Internal functions

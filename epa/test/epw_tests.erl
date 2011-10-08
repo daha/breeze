@@ -64,9 +64,9 @@ should_call_terminate_on_stop_test() ->
     delete_mock(Mock).
 
 behaviour_info_test() ->
-    Expected = [{init,1},
+    Expected = [{init, 1},
                 {process, 3},
-                {terminate,2}],
+                {terminate, 2}],
     Actual = epw:behaviour_info(callbacks),
     ?assertEqual(Expected, Actual),
     ?assertEqual(undefined, epw:behaviour_info(foo)).

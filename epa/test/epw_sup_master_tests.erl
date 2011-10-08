@@ -67,15 +67,15 @@ should_not_start_with_invalid_callback_module_test() ->
 
 start_worker_test() ->
     {ok, Pid} = epw_sup_master:start_link(),
-    Expected0 = [{specs,1},
-                 {active,0},
-                 {supervisors,0},
-                 {workers,0}],
+    Expected0 = [{specs, 1},
+                 {active, 0},
+                 {supervisors, 0},
+                 {workers, 0}],
     ?assertEqual(Expected0, supervisor:count_children(Pid)),
     {ok, _WorkerSup} = epw_sup_master:start_worker_sup(epw_dummy),
-    Expected1 = [{specs,1},
-                 {active,1},
-                 {supervisors,1},
-                 {workers,0}],
+    Expected1 = [{specs, 1},
+                 {active, 1},
+                 {supervisors, 1},
+                 {workers, 0}],
     ?assertEqual(Expected1, supervisor:count_children(Pid)),
     epw_sup_master:stop().

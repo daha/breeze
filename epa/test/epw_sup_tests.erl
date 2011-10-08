@@ -47,10 +47,10 @@
 start_stop_test() ->
     {ok, Pid} = epw_sup:start_link(epw_dummy),
     ?assert(is_process_alive(Pid)),
-    Expected = [{specs,1},
-                {active,0},
-                {supervisors,0},
-                {workers,0}],
+    Expected = [{specs, 1},
+                {active, 0},
+                {supervisors, 0},
+                {workers, 0}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
     ok = epw_sup:stop(Pid),
     ok = epw_sup:stop(Pid).
@@ -60,10 +60,10 @@ start_worker_test() ->
 
     ?assertMatch({ok, _Pid}, epw_sup:start_worker(Pid)),
 
-    Expected = [{specs,1},
-                {active,1},
-                {supervisors,0},
-                {workers,1}],
+    Expected = [{specs, 1},
+                {active, 1},
+                {supervisors, 0},
+                {workers, 1}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
     stop(Pid).
 
@@ -72,10 +72,10 @@ start_workers_test() ->
     Pid = start(),
     ?assertMatch({ok, [_Pid1, _Pid2]},
                  epw_sup:start_workers(Pid, 2)),
-    Expected = [{specs,1},
-                {active,2},
-                {supervisors,0},
-                {workers,2}],
+    Expected = [{specs, 1},
+                {active, 2},
+                {supervisors, 0},
+                {workers, 2}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
     stop(Pid).
 
@@ -90,10 +90,10 @@ workers_should_be_temporary_test() ->
     Ref = monitor(process, Pid1),
     exit(Pid1, abnormal),
     receive {'DOWN', Ref, process, Pid1, _Info} -> ok end,
-    Expected = [{specs,1},
-                {active,1},
-                {supervisors,0},
-                {workers,1}],
+    Expected = [{specs, 1},
+                {active, 1},
+                {supervisors, 0},
+                {workers, 1}],
     ?assertEqual(Expected, supervisor:count_children(Pid)).
 
 % internal

@@ -67,7 +67,7 @@
 %%% API
 %%%===================================================================
 behaviour_info(callbacks) ->
-    [{init,1},
+    [{init, 1},
      {process, 3},
      {terminate, 2}];
 behaviour_info(_Other) ->

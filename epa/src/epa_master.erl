@@ -272,7 +272,7 @@ i_check_targets([]) ->
 i_check_topology_duplicated_names(Topology) ->
    i_check_topology_duplicated_names(Topology, _ValidNames = []).
 
-i_check_topology_duplicated_names([{Name, _,_,_,_} | Rest], ValidNames) ->
+i_check_topology_duplicated_names([{Name, _, _, _, _} | Rest], ValidNames) ->
     case lists:member(Name, ValidNames) of
         true ->
             {error, duplicated_worker_name};
@@ -286,7 +286,7 @@ i_check_topology_duplicated_names([], _ValidNames) ->
 i_check_topology_target_references(Topology) ->
     i_check_topology_target_references(Topology, []).
 
-i_check_topology_target_references([{Name, _,_,_,Targets} | Rest], ConsumedNames) ->
+i_check_topology_target_references([{Name, _, _, _, Targets} | Rest], ConsumedNames) ->
     ValidNames = ConsumedNames ++ i_extract_names(Rest),
     case i_check_target_names_is_valid(Targets, ValidNames) of
         ok ->
@@ -311,7 +311,7 @@ i_extract_names(List) ->
     lists:map(fun(Worker) -> element(1, Worker) end, List).
 
 % i_check_topology_target_reference_types/1
-i_check_topology_target_reference_types([{_, _,_,_,Targets} | Rest]) ->
+i_check_topology_target_reference_types([{_, _, _, _, Targets} | Rest]) ->
     case i_check_target_types(Targets) of
         ok ->
             i_check_topology_target_reference_types(Rest);
@@ -333,7 +333,7 @@ i_check_target_types([]) ->
     ok.
 
 % i_check_topology_worker_types/1
-i_check_topology_worker_types([{_,epw,_,_,_} | Rest]) ->
+i_check_topology_worker_types([{_, epw, _, _, _} | Rest]) ->
     i_check_topology_worker_types(Rest);
 i_check_topology_worker_types([{_, InvalidWorkerType, _, _, _} | _Rest]) ->
     {error, {invalid_worker_type, InvalidWorkerType}};
