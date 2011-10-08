@@ -60,13 +60,15 @@
 -export([start_link/1]).
 -export([stop/0]).
 
+-export([get_controller/1]).
+
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
 
--record(state, {}).
+-record(state, {controller_list = []}).
 
 %%%===================================================================
 %%% API
@@ -90,6 +92,9 @@ start_link(Config) when is_list(Config) ->
 stop() ->
     gen_server:call(?SERVER, stop).
 
+get_controller(Name) when is_atom(Name) ->
+    gen_server:call(?SERVER, {get_controller, Name}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -107,8 +112,8 @@ stop() ->
 %%--------------------------------------------------------------------
 init([Config]) ->
     Topology = proplists:get_value(topology, Config, []),
-    i_start_topology(Topology),
-    {ok, #state{}}.
+    ControllerList = i_start_topology(Topology),
+    {ok, #state{controller_list = ControllerList}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -126,6 +131,9 @@ init([Config]) ->
 %%--------------------------------------------------------------------
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
+handle_call({get_controller, Name}, _From, State) ->
+    Result = i_get_controller(Name, State#state.controller_list),
+    {reply, Result, State};
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
@@ -185,44 +193,45 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 i_start_topology(Topology) ->
-    {ok, EpcList} = i_start_all_epc(Topology),
-    i_connect_epcs(Topology, EpcList),
-    i_start_workers(Topology, EpcList),
-    ok.
+    {ok, ControllerList} = i_start_all_epc(Topology),
+    i_connect_epcs(Topology, ControllerList),
+    i_start_workers(Topology, ControllerList),
+    ControllerList.
 
 i_start_all_epc(Topology) ->
-    EpcList = i_start_all_epc(Topology, _EpcList = []),
-    {ok, EpcList}.
+    ControllerList = i_start_all_epc(Topology, _ControllerList = []),
+    {ok, ControllerList}.
 
 i_start_all_epc([{Name, epw, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
     {ok, WorkerSup} = epw_supersup:start_worker_sup(WorkerCallback),
-    {ok, Epc} = epc_sup:start_epc(WorkerSup),
-    i_start_all_epc(Rest, [{Name, Epc} | Acc]);
+    {ok, Controller} = epc_sup:start_epc(WorkerSup),
+    i_start_all_epc(Rest, [{Name, Controller} | Acc]);
 i_start_all_epc([], Acc) ->
     Acc.
 
-i_connect_epcs([{Name, epw, _Cb, _Children, Targets} | Rest], EpcList) ->
-    Pid = proplists:get_value(Name, EpcList),
-    i_connect_epcs_to_targets(Pid, Targets, EpcList),
-    i_connect_epcs(Rest, EpcList);
-i_connect_epcs([], _EpcList) ->
+i_connect_epcs([{Name, epw, _Cb, _Children, Targets} | Rest], ControllerList) ->
+    Pid = proplists:get_value(Name, ControllerList),
+    i_connect_epcs_to_targets(Pid, Targets, ControllerList),
+    i_connect_epcs(Rest, ControllerList);
+i_connect_epcs([], _ControllerList) ->
     ok.
 
-i_connect_epcs_to_targets(_Pid, _NamedTargets = [], _EpcList) ->
+i_connect_epcs_to_targets(_Pid, _NamedTargets = [], _ControllerList) ->
     ok;
-i_connect_epcs_to_targets(Pid, NamedTargets, EpcList) ->
+i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
     Targets = lists:map(
                    fun({Name, Type}) ->
-                           NamePid = proplists:get_value(Name, EpcList),
+                           NamePid = proplists:get_value(Name, ControllerList),
                            {NamePid, Type}
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
 
-i_start_workers([{Name, epw, _Cb, NumberOfWorkers, _Targets} | Rest], EpcList) ->
-    Pid = proplists:get_value(Name, EpcList),
+i_start_workers([{Name, epw, _Cb, NumberOfWorkers, _Targets} | Rest],
+		ControllerList) ->
+    Pid = proplists:get_value(Name, ControllerList),
     epc:start_workers(Pid, NumberOfWorkers),
-    i_start_workers(Rest, EpcList);
-i_start_workers([], _EpcList) ->
+    i_start_workers(Rest, ControllerList);
+i_start_workers([], _ControllerList) ->
     ok.
 
 i_check_config_syntax(Config) ->
@@ -358,3 +367,12 @@ i_check_worker_callback_module([{_, epw, WorkerCallback, _, _} | Rest]) ->
     end;
 i_check_worker_callback_module([]) ->
     ok.
+
+% i_get_controller/2
+i_get_controller(Name, ControllerList) ->
+    case proplists:lookup(Name, ControllerList) of
+	{Name, Pid} ->
+	    {ok, Pid};
+	_ ->
+	    {error, {not_found, Name}}
+    end.

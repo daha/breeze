@@ -44,8 +44,6 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([]).
-
 start_stop_test() ->
     {ok, Pid} = epa_master:start_link([]),
     ?assertNot(undefined == process_info(Pid)),
@@ -95,6 +93,19 @@ read_config_with_two_connected_epcs_test() ->
     ?assert(meck:called(epc, start_workers, [EpcPid2, ReceiverWorkers])),
     meck:unload(SenderCallback),
     meck:unload(ReceiverCallback),
+    teardown().
+
+get_epc_by_name_test() ->
+    {_WorkerSup, [EpcPid|_]} = mock(),
+    WorkerName = dummy,
+    InvalidWorkerName = invalid_name,
+
+    Config = [{topology, [{WorkerName, epw, epw_dummy, 1, []}]}],
+
+    {ok, _Pid} = epa_master:start_link(Config),
+    ?assertEqual({error, {not_found, InvalidWorkerName}},
+		  epa_master:get_controller(InvalidWorkerName)),
+    ?assertEqual({ok, EpcPid}, epa_master:get_controller(WorkerName)),
     teardown().
 
 %
