@@ -45,30 +45,30 @@
 -include_lib("eunit/include/eunit.hrl").
 
 start_stop_test() ->
-    {ok, Pid} = epc_sup:start_link(epw_dummy),
+    {ok, Pid} = epc_sup:start_link(),
     ?assert(is_process_alive(Pid)),
-    ok = epc_sup:stop(Pid).
+    ?assertMatch(Pid when is_pid(Pid), whereis(epc_sup)),
+    Ref = monitor(process, Pid),
+    ok = epc_sup:stop(),
+    receive {'DOWN', Ref, process, _, _} -> ok end,
+    ?assert(undefined == process_info(Pid)),
+    ?assertEqual(undefined, whereis(epw_sup_master)),
+    ok = epc_sup:stop().
 
 start_epc_test() ->
-    Pid = start(),
-    Expected = [{specs,2},
-                {active,2},
-                {supervisors,1},
-                {workers,1}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
-    stop(Pid).
-
-get_worker_sup_pid_test() ->
-    Pid = start(),
-    {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(Pid),
-    % Ugly way of verifying this is a supervisor
-    ?assertEqual([], supervisor:which_children(WorkerSupPid)),
-    stop(Pid).
+    {ok, Pid} = epc_sup:start_link(),
+    Expected0 = [{specs,1},
+                 {active,0},
+                 {supervisors,0},
+                 {workers,0}],
+    ?assertEqual(Expected0, supervisor:count_children(Pid)),
+    {ok, WorkerSup} = epw_sup:start_link(epw_dummy),
+    {ok, _EpcPid} = epc_sup:start_epc(WorkerSup),
+    Expected1 = [{specs,1},
+                 {active,1},
+                 {supervisors,0},
+                 {workers,1}],
+    ?assertEqual(Expected1, supervisor:count_children(Pid)),
+    epc_sup:stop().
 
 % internal
-start() ->
-    {ok, Pid} = epc_sup:start_link(epw_dummy),
-    Pid.
-
-stop(Pid) ->
-   epc_sup:stop(Pid).

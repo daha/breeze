@@ -45,17 +45,14 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/1]).
--export([stop/1]).
--export([get_worker_sup_pid/1]).
-
--ifdef(TEST).
--export([get_controller_id/0]).
--export([get_worker_sup_id/0]).
--endif.
+-export([start_link/0]).
+-export([stop/0]).
+-export([start_epc/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
+
+-define(SERVER, ?MODULE).
 
 %%%===================================================================
 %%% API functions
@@ -65,32 +62,23 @@
 %% @doc
 %% Starts the supervisor
 %%
-%% @spec start_link(ControllerName, WorkerCallback) ->
-%%           {ok, Pid} | ignore | {error, Error}
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(WorkerCallback) ->
-    case epw:validate_module(WorkerCallback) of
-        true ->
-            supervisor:start_link(?MODULE, [WorkerCallback]);
-        false ->
-            {error, {invalid_callback_module, WorkerCallback}}
-    end.
+start_link() ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-stop(Pid) ->
-    true = exit(Pid, normal),
+stop() ->
+    case whereis(?SERVER) of
+        undefined ->
+            ok;
+        Pid ->
+        true = exit(Pid, normal)
+    end,
     ok.
 
-get_worker_sup_pid(Pid) ->
-    Children = supervisor:which_children(Pid),
-    {worker_sup, WorkerSupPid, _, _} = proplists:lookup(worker_sup, Children),
-    {ok, WorkerSupPid}.
-
-get_controller_id() ->
-    controller.
-
-get_worker_sup_id() ->
-    worker_sup.
+start_epc(WorkerSup) ->
+    supervisor:start_child(?SERVER, [WorkerSup]).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -109,14 +97,11 @@ get_worker_sup_id() ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([WorkerCallback]) ->
-    WorkerSup =   {get_worker_sup_id(), {epw_sup, start_link,[WorkerCallback]},
-                   permanent, infinity, supervisor, [epw_sup]},
-    Controller = {get_controller_id(),
-                  {epc, start_link, [self()]},
-                  permanent, 2000, worker, [epc]},
-    ChildSpecs = [WorkerSup, Controller],
-    {ok,{{one_for_all,0,1}, ChildSpecs}}.
+init([]) ->
+    ChildSpec = {controller,
+                 {epc, start_link, []},
+                 transient, 10000, worker, [epc]},
+    {ok,{{simple_one_for_one,0,1}, [ChildSpec]}}.
 
 %% ====================================================================
 %% Internal functions

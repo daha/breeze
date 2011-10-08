@@ -5,11 +5,28 @@ startup
 -------
 1. The user creates a config file or sets the application configuration
 2. start app
-3. master gen_server is started by the app_sup
+3. master is started by the app_sup
 4. the gen server starts all epc:s
 5. The epc:s is configured with information of where to send its output
-6. The epc:s start their workers
+6. The master ask the epc:s to start their workers
 7. The start application call returns when all i started?
+
+3. master is started
+-------------------------------
+1. The master starts 2 simple_one_on_one supervisors
+   * One worker supervisor supervisor
+   * One controller supervisor
+
+4. The gen_server starts all epc:s
+----------------------------------
+1. Start a worker supervisor with the worker callback as argument
+2. Start the controller with the started worker sup Pid
+Repeat for each epc
+
+5. The epc:s is configured with information of where to send its output
+-----------------------------------------------------------------------
+* with the targets
+? with the number of workers?
 
 the config is not valid
 -----------------------
@@ -24,7 +41,7 @@ how to configure the epc
 TO BE DONE
 
 worker dies, how it restarts
------------
+----------------------------
 TO BE DONE
 
 one epc dies

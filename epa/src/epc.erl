@@ -73,8 +73,8 @@
 %% @spec start_link(Name, SupervisorPid) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(SupervisorPid) ->
-    gen_server:start_link(?MODULE, [SupervisorPid], []).
+start_link(WorkerSup) ->
+    gen_server:start_link(?MODULE, [WorkerSup], []).
 
 set_targets(Server, Targets) when is_list(Targets) ->
     gen_server:call(Server, {set_targets, Targets}).
@@ -111,11 +111,10 @@ sync(Server) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([SupervisorPid]) ->
-    self() ! {get_worker_sup, SupervisorPid},
+init([WorkerSup]) ->
     {_, A, B} = now(),
     random:seed(A, B, erlang:phash2(make_ref())),
-    {ok, #state{}}.
+    {ok, #state{sup_pid = WorkerSup}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -178,9 +177,6 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info({get_worker_sup, SupervisorPid}, State) ->
-    {ok, WorkerSupPid} = epc_sup:get_worker_sup_pid(SupervisorPid),
-    {noreply, State#state{sup_pid = WorkerSupPid}};
 handle_info({'DOWN', _Ref, process, Pid, _Info}, State0) ->
     State1 = i_restart_worker(Pid, State0),
     {noreply, State1};

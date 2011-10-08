@@ -55,8 +55,9 @@ start_stop_test() ->
     ok = epw_sup_master:stop(),
     receive {'DOWN', Ref, process, _, _} -> ok end,
     ?assert(undefined == process_info(Pid)),
-    ?assertEqual(undefined, whereis(epw_sup_master)).
-    
+    ?assertEqual(undefined, whereis(epw_sup_master)),
+    ok = epw_sup_master:stop().
+
 should_not_start_with_invalid_callback_module_test() ->
     epw_sup_master:start_link(),
     CallbackModule = invalid_callback_module,

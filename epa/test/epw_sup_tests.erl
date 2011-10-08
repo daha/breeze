@@ -52,6 +52,7 @@ start_stop_test() ->
                 {supervisors,0},
                 {workers,0}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
+    ok = epw_sup:stop(Pid),
     ok = epw_sup:stop(Pid).
 
 start_worker_test() ->

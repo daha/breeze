@@ -77,7 +77,12 @@ start_worker_sup(WorkerCallback) ->
     end.
 
 stop() ->
-    true = exit(whereis(?SERVER), normal),
+    case whereis(?SERVER) of
+        undefined ->
+            ok;
+        Pid ->
+            true = exit(Pid, normal)
+    end,
     ok.
 
 %%%===================================================================
