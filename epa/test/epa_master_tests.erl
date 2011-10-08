@@ -60,22 +60,27 @@ read_simple_config_and_start_epc_test() ->
     mock(),
 
     WorkerCallback = epw_dummy,
-    Config = [{topology, [{dummy, epw, WorkerCallback, 2, []}]}],
+    NumberOfWorkers = 2,
+    Config = [{topology, [{dummy, epw, WorkerCallback, NumberOfWorkers, []}]}],
 
     {ok, _Pid} = epa_master:start_link(Config),
 
     ?assert(meck:called(epw_supersup, start_worker_sup, [WorkerCallback])),
     ?assert(meck:called(epc_sup, start_epc, [self()])),
+    ?assertNot(meck:called(epc, set_targets, [])),
+    ?assert(meck:called(epc, start_workers, [self(), NumberOfWorkers])),
     teardown().
 
 read_config_with_two_connected_epcs_test() ->
     mock(),
     SenderCallback = sender_callback,
     ReceiverCallback = receiver_callback,
+    SenderWorkers = 2,
+    ReceiverWorkers = 3,
     mock_epw_callback(SenderCallback),
     mock_epw_callback(ReceiverCallback),
-    Config = [{topology, [{sender, epw, SenderCallback, 2, [{receiver, all}]},
-                          {receiver, epw, ReceiverCallback, 2, []}
+    Config = [{topology, [{sender, epw, SenderCallback, SenderWorkers, [{receiver, all}]},
+                          {receiver, epw, ReceiverCallback, ReceiverWorkers, []}
                          ]
               }],
 
@@ -85,6 +90,8 @@ read_config_with_two_connected_epcs_test() ->
     ?assert(meck:called(epw_supersup, start_worker_sup, [ReceiverCallback])),
     ?assertEqual(2, meck_improvements:count_calls(epc_sup, start_epc, [self()])),
     ?assert(meck:called(epc, set_targets, [self(), [{self(), all}]])),
+    ?assert(meck:called(epc, start_workers, [self(), SenderWorkers])),
+    ?assert(meck:called(epc, start_workers, [self(), ReceiverWorkers])),
     meck:unload(SenderCallback),
     meck:unload(ReceiverCallback),
     teardown().
@@ -208,7 +215,8 @@ mock() ->
     meck:new(epc),
     meck:expect(epw_supersup, start_worker_sup, 1, {ok, self()}),
     meck:expect(epc_sup, start_epc, 1, {ok, self()}),
-    meck:expect(epc, set_targets, 2, ok).
+    meck:expect(epc, set_targets, 2, ok),
+    meck:expect(epc, start_workers, 2, ok).
 
 mock_epw_callback(CallbackModule) ->
     meck:new(CallbackModule),

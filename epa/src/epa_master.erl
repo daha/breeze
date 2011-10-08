@@ -187,6 +187,7 @@ code_change(_OldVsn, State, _Extra) ->
 i_start_topology(Topology) ->
     {ok, EpcList} = i_start_all_epc(Topology),
     i_connect_epcs(Topology, EpcList),
+    i_start_workers(Topology, EpcList),
     ok.
 
 i_start_all_epc(Topology) ->
@@ -216,6 +217,13 @@ i_connect_epcs_to_targets(Pid, NamedTargets, EpcList) ->
                            {Pid, Type}
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
+
+i_start_workers([{Name, epw, _Cb, NumberOfWorkers, _Targets} | Rest], EpcList) ->
+    Pid = proplists:get_value(Name, EpcList),
+    epc:start_workers(Pid, NumberOfWorkers),
+    i_start_workers(Rest, EpcList);
+i_start_workers([], _EpcList) ->
+    ok.
 
 i_check_config_syntax(Config) ->
     Topology = proplists:get_value(topology, Config, []),
