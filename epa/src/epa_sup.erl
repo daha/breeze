@@ -104,7 +104,7 @@ init([]) ->
 %%     Config = application:get_all_env(),
     Config = [],
     ChildSpecs = [?CHILD(epc_sup, supervisor, infinity),
-                  ?CHILD(epw_sup_master, supervisor, infinity),
+                  ?CHILD(epw_supersup, supervisor, infinity),
                   ?CHILD(epa_master, [Config], worker, 5000)],
     {ok, { {one_for_all, 0, 1}, ChildSpecs} }.
 

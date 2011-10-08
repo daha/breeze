@@ -194,7 +194,7 @@ i_start_all_epc(Topology) ->
     {ok, EpcList}.
 
 i_start_all_epc([{Name, epw, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
-    {ok, WorkerSup} = epw_sup_master:start_worker_sup(WorkerCallback),
+    {ok, WorkerSup} = epw_supersup:start_worker_sup(WorkerCallback),
     {ok, Epc} = epc_sup:start_epc(WorkerSup),
     i_start_all_epc(Rest, [{Name, Epc} | Acc]);
 i_start_all_epc([], Acc) ->

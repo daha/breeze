@@ -24,7 +24,7 @@ Diagram over the processes:
                      /  |
                   1 /   |1
                  +-+   +-+
-      epc_sup -> | |   | | epw_sup_master
+      epc_sup -> | |   | | epw_supersup
                1 +-+   +-+
                 /       |1
                /        |

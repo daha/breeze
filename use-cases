@@ -15,7 +15,7 @@ startup
 ------------
 1. App start the app_sup
 2. The app sup starts:
-   * One worker supervisor supervisor (epw_sup_master)
+   * One worker supervisor supervisor (epw_supersup)
    * One controller supervisor (epc_sup)
    * epa master
 

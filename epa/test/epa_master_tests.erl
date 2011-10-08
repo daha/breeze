@@ -64,7 +64,7 @@ read_simple_config_and_start_epc_test() ->
 
     {ok, _Pid} = epa_master:start_link(Config),
 
-    ?assert(meck:called(epw_sup_master, start_worker_sup, [WorkerCallback])),
+    ?assert(meck:called(epw_supersup, start_worker_sup, [WorkerCallback])),
     ?assert(meck:called(epc_sup, start_epc, [self()])),
     teardown().
 
@@ -81,8 +81,8 @@ read_config_with_two_connected_epcs_test() ->
 
     {ok, _Pid} = epa_master:start_link(Config),
 
-    ?assert(meck:called(epw_sup_master, start_worker_sup, [SenderCallback])),
-    ?assert(meck:called(epw_sup_master, start_worker_sup, [ReceiverCallback])),
+    ?assert(meck:called(epw_supersup, start_worker_sup, [SenderCallback])),
+    ?assert(meck:called(epw_supersup, start_worker_sup, [ReceiverCallback])),
     ?assertEqual(2, meck_improvements:count_calls(epc_sup, start_epc, [self()])),
     ?assert(meck:called(epc, set_targets, [self(), [{self(), all}]])),
     meck:unload(SenderCallback),
@@ -203,10 +203,10 @@ invalid_topology_worker_callback_module_test() ->
 
 %% Internal functions
 mock() ->
-    meck:new(epw_sup_master),
+    meck:new(epw_supersup),
     meck:new(epc_sup),
     meck:new(epc),
-    meck:expect(epw_sup_master, start_worker_sup, 1, {ok, self()}),
+    meck:expect(epw_supersup, start_worker_sup, 1, {ok, self()}),
     meck:expect(epc_sup, start_epc, 1, {ok, self()}),
     meck:expect(epc, set_targets, 2, ok).
 
@@ -223,4 +223,4 @@ teardown() ->
 unload_mocks() ->
     meck:unload(epc),
     meck:unload(epc_sup),
-    meck:unload(epw_sup_master).
+    meck:unload(epw_supersup).

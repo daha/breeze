@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(epw_sup_master).
+-module(epw_supersup).
 
 -behaviour(supervisor).
 
