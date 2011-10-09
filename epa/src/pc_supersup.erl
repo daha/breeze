@@ -46,7 +46,7 @@
 
 %% API
 -export([start_link/0]).
--export([start_worker_sup/1]).
+-export([start_worker_sup/2]).
 -export([stop/0]).
 
 %% Supervisor callbacks
@@ -68,10 +68,10 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-start_worker_sup(WorkerCallback) ->
-    case epw:validate_module(WorkerCallback) of
+start_worker_sup(WorkerMod, WorkerCallback) ->
+    case WorkerMod:validate_module(WorkerCallback) of
         true ->
-            supervisor:start_child(?SERVER, [epw, WorkerCallback]);
+            supervisor:start_child(?SERVER, [WorkerMod, WorkerCallback]);
         false ->
             {error, {invalid_callback_module, WorkerCallback}}
     end.

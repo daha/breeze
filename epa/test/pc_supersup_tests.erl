@@ -60,19 +60,27 @@ start_stop_test() ->
 
 should_not_start_with_invalid_callback_module_test() ->
     pc_supersup:start_link(),
+    WorkerMod = epw,
     CallbackModule = invalid_callback_module,
     ?assertEqual({error, {invalid_callback_module, CallbackModule}},
-        pc_supersup:start_worker_sup(CallbackModule)),
+        pc_supersup:start_worker_sup(WorkerMod, CallbackModule)),
     pc_supersup:stop().
 
-start_worker_test() ->
+
+start_epw_worker_test() ->
+    test_start_worker(epw, epw_dummy).
+
+start_eg_worker_test() ->
+    test_start_worker(eg, eg_dummy).
+
+test_start_worker(WorkerMod, WorkerCallback) ->
     {ok, Pid} = pc_supersup:start_link(),
     Expected0 = [{specs, 1},
                  {active, 0},
                  {supervisors, 0},
                  {workers, 0}],
     ?assertEqual(Expected0, supervisor:count_children(Pid)),
-    {ok, _WorkerSup} = pc_supersup:start_worker_sup(epw_dummy),
+    {ok, _WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
     Expected1 = [{specs, 1},
                  {active, 1},
                  {supervisors, 1},

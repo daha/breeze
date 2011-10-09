@@ -54,17 +54,23 @@ start_stop_test() ->
     ?assert(undefined == process_info(Pid)),
     ?assertEqual(undefined, whereis(epa_master)).
 
-read_simple_config_and_start_epc_test() ->
+read_simple_config_and_start_epc_epw_test() ->
+    test_read_simple_config_and_start_epc(epw, epw_dummy), ok.
+
+read_simple_config_and_start_epc_eg_test() ->
+    test_read_simple_config_and_start_epc(eg, eg_dummy), ok.
+
+test_read_simple_config_and_start_epc(WorkerType, WorkerCallback) ->
     {WorkerSup, [EpcPid|_]} = mock(),
 
-    WorkerCallback = epw_dummy,
     NumberOfWorkers = 2,
-    Config = [{topology, [{dummy, epw, WorkerCallback, NumberOfWorkers, []}]}],
+    Config = [{topology, [{dummy, WorkerType, WorkerCallback, NumberOfWorkers, []}]}],
 
     {ok, _Pid} = epa_master:start_link(Config),
 
-    ?assert(meck:called(pc_supersup, start_worker_sup, [WorkerCallback])),
-    ?assert(meck:called(epc_sup, start_epc, [WorkerSup])),
+    ?assert(meck:called(pc_supersup, start_worker_sup,
+                        [WorkerType, WorkerCallback])),
+    ?assert(meck:called(epc_sup, start_epc, [WorkerType, WorkerSup])),
     ?assertNot(meck:called(epc, set_targets, [])),
     ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers])),
     teardown().
@@ -75,19 +81,24 @@ read_config_with_two_connected_epcs_test() ->
     ReceiverCallback = receiver_callback,
     SenderWorkers = 2,
     ReceiverWorkers = 3,
+    WorkerType = epw,
     mock_epw_callback(SenderCallback),
     mock_epw_callback(ReceiverCallback),
-    Config = [{topology, [{sender, epw, SenderCallback, SenderWorkers,
+    Config = [{topology, [{sender, WorkerType, SenderCallback, SenderWorkers,
 			   [{receiver, all}]},
-                          {receiver, epw, ReceiverCallback, ReceiverWorkers, []}
+                          {receiver, WorkerType, ReceiverCallback,
+                           ReceiverWorkers, []}
                          ]
               }],
 
     {ok, _Pid} = epa_master:start_link(Config),
 
-    ?assert(meck:called(pc_supersup, start_worker_sup, [SenderCallback])),
-    ?assert(meck:called(pc_supersup, start_worker_sup, [ReceiverCallback])),
-    ?assertEqual(2, meck_improvements:calls(epc_sup, start_epc, [WorkerSup])),
+    ?assert(meck:called(pc_supersup, start_worker_sup,
+                        [WorkerType, SenderCallback])),
+    ?assert(meck:called(pc_supersup, start_worker_sup,
+                        [WorkerType, ReceiverCallback])),
+    ?assertEqual(2, meck_improvements:calls(epc_sup, start_epc,
+                                            [WorkerType, WorkerSup])),
     ?assert(meck:called(epc, set_targets, [EpcPid1, [{EpcPid2, all}]])),
     ?assert(meck:called(epc, start_workers, [EpcPid1, SenderWorkers])),
     ?assert(meck:called(epc, start_workers, [EpcPid2, ReceiverWorkers])),
@@ -181,14 +192,14 @@ invalid_topology_target_references_test() ->
                  epa_master:start_link(InvalidTargetRef3)),
     ok.
 
-invalid_topology_terget_ref_type_test() ->
+invalid_topology_target_ref_type_test() ->
     InvalidTargetRefType = [{topology, [{name1, epw, bar, 1, []},
                                          {name2, epw, bar, 1,
                                           [{name1, foo}]}]}],
     ?assertEqual({error, {invalid_target_ref_type, foo}},
                  epa_master:start_link(InvalidTargetRefType)).
 
-valid_topology_terget_ref_type_test() ->
+valid_topology_target_ref_type_test() ->
     ValidTargetRefType1 = [{topology, [{name1, epw, epw_dummy, 1, []},
                                       {name2, epw, epw_dummy, 1,
                                        [{name1, all}]}]}],
@@ -238,8 +249,8 @@ mock() ->
     WorkerSup = create_pid(),
     EpcPids = lists:map(fun(_) -> create_pid() end, lists:seq(1, 3)),
     StartEpcRetVal = lists:zip(lists:duplicate(length(EpcPids), ok), EpcPids),
-    meck:expect(pc_supersup, start_worker_sup, 1, {ok, WorkerSup}),
-    meck:sequence(epc_sup, start_epc, 1, StartEpcRetVal),
+    meck:expect(pc_supersup, start_worker_sup, 2, {ok, WorkerSup}),
+    meck:sequence(epc_sup, start_epc, 2, StartEpcRetVal),
     meck:expect(epc, set_targets, 2, ok),
     meck:expect(epc, start_workers, 2, ok),
     {WorkerSup, EpcPids}.

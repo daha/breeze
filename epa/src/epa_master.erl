@@ -201,14 +201,14 @@ i_start_all_epc(Topology) ->
     ControllerList = i_start_all_epc(Topology, _ControllerList = []),
     {ok, ControllerList}.
 
-i_start_all_epc([{Name, epw, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
-    {ok, WorkerSup} = pc_supersup:start_worker_sup(WorkerCallback),
-    {ok, Controller} = epc_sup:start_epc(WorkerSup),
+i_start_all_epc([{Name, WorkerMod, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
+    {ok, WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
+    {ok, Controller} = epc_sup:start_epc(WorkerMod, WorkerSup),
     i_start_all_epc(Rest, [{Name, Controller} | Acc]);
 i_start_all_epc([], Acc) ->
     Acc.
 
-i_connect_epcs([{Name, epw, _Cb, _Children, Targets} | Rest], ControllerList) ->
+i_connect_epcs([{Name, _WorkerMod, _Cb, _Children, Targets} | Rest], ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     i_connect_epcs_to_targets(Pid, Targets, ControllerList),
     i_connect_epcs(Rest, ControllerList);
@@ -225,7 +225,7 @@ i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
 
-i_start_workers([{Name, epw, _Cb, NumberOfWorkers, _Targets} | Rest],
+i_start_workers([{Name, _WorkerMod, _Cb, NumberOfWorkers, _Targets} | Rest],
 		ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     epc:start_workers(Pid, NumberOfWorkers),
@@ -235,13 +235,14 @@ i_start_workers([], _ControllerList) ->
 
 i_check_config_syntax(Config) ->
     Topology = proplists:get_value(topology, Config, []),
-    i_check_all(Topology, [fun i_check_topology_syntax/1,
+    Res = i_check_all(Topology, [fun i_check_topology_syntax/1,
                            fun i_check_topology_duplicated_names/1,
                            fun i_check_topology_target_references/1,
                            fun i_check_topology_target_reference_types/1,
                            fun i_check_topology_worker_types/1,
                            fun i_check_worker_callback_module/1
-                           ]).
+                           ]),
+    Res.
 
 i_check_all(Topology, [CheckFun | CheckFuns]) ->
     case CheckFun(Topology) of
@@ -351,17 +352,19 @@ i_check_target_types([]) ->
 % i_check_topology_worker_types/1
 i_check_topology_worker_types([{_, epw, _, _, _} | Rest]) ->
     i_check_topology_worker_types(Rest);
+i_check_topology_worker_types([{_, eg, _, _, _} | Rest]) ->
+    i_check_topology_worker_types(Rest);
 i_check_topology_worker_types([{_, InvalidWorkerType, _, _, _} | _Rest]) ->
     {error, {invalid_worker_type, InvalidWorkerType}};
 i_check_topology_worker_types([]) ->
     ok.
 
 % i_check_worker_callback_module/1
-i_check_worker_callback_module([{_, epw, WorkerCallback, _, _} | Rest]) ->
-    case epw:validate_module(WorkerCallback) of
+i_check_worker_callback_module([{_, WorkerMod, WorkerCallback, _, _} | Rest]) ->
+    case WorkerMod:validate_module(WorkerCallback) of
         true ->
             i_check_worker_callback_module(Rest);
-        _ ->
+        _E ->
             {error, {invalid_worker_callback_module, WorkerCallback}}
     end;
 i_check_worker_callback_module([]) ->

@@ -46,7 +46,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/1]).
+-export([start_link/2]).
 -export([stop/1]).
 
 -export([set_targets/2]).
@@ -62,7 +62,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {sup_pid, workers, targets}).
+-record(state, {worker_mod, sup_pid, workers, targets}).
 
 %%%===================================================================
 %%% API
@@ -72,11 +72,11 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(WorkerSup) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(WorkerMod, WorkerSup) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(WorkerSup) ->
-    gen_server:start_link(?MODULE, [WorkerSup], []).
+start_link(WorkerMod, WorkerSup) when is_atom(WorkerMod), is_pid(WorkerSup) ->
+    gen_server:start_link(?MODULE, [WorkerMod, WorkerSup], []).
 
 stop(Server) ->
     gen_server:call(Server, stop).
@@ -116,10 +116,10 @@ sync(Server) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([WorkerSup]) ->
+init([WorkerMod, WorkerSup]) ->
     {_, A, B} = now(),
     random:seed(A, B, erlang:phash2(make_ref())),
-    {ok, #state{sup_pid = WorkerSup}}.
+    {ok, #state{worker_mod = WorkerMod, sup_pid = WorkerSup}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -145,7 +145,7 @@ handle_call({start_workers, _NumberOfWorkers}, _From, State) ->
 handle_call({set_targets, Targets}, _From, State) ->
     {reply, ok, State#state{targets = Targets}};
 handle_call(sync, _From, State) ->
-    i_sync(State#state.workers),
+    i_sync(State#state.worker_mod, State#state.workers),
     {reply, ok, State};
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
@@ -162,13 +162,13 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({msg, all, Msg}, State) ->
+handle_cast({msg, all, Msg}, State = #state{worker_mod = epw}) ->
     i_multicast(State#state.workers, Msg),
     {noreply, State};
-handle_cast({msg, random, Msg}, State) ->
+handle_cast({msg, random, Msg}, State = #state{worker_mod = epw}) ->
     i_randomcast(State#state.workers, Msg),
     {noreply, State};
-handle_cast({msg, keyhash, Msg}, State) ->
+handle_cast({msg, keyhash, Msg}, State = #state{worker_mod = epw}) ->
     i_keyhashcast(State#state.workers, Msg),
     {noreply, State};
 handle_cast(_Msg, State) ->
@@ -218,8 +218,8 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-i_sync(Workers) ->
-    lists:foreach(fun({Pid, _}) -> ok = epw:sync(Pid) end, Workers).
+i_sync(WorkerMod, Workers) ->
+    lists:foreach(fun({Pid, _}) -> ok = WorkerMod:sync(Pid) end, Workers).
 
 i_multicast(Workers, Msg) ->
     lists:foreach(fun({Pid, _}) -> epw:process(Pid, Msg) end, Workers).

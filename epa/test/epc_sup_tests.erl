@@ -55,15 +55,21 @@ start_stop_test() ->
     ?assertEqual(undefined, whereis(epc_sup)),
     ok = epc_sup:stop().
 
-start_epc_test() ->
+start_epc_epw_test() ->
+    test_start_epc(epw, epw_dummy).
+
+start_epc_eg_test() ->
+    test_start_epc(eg, eg_dummy).
+
+test_start_epc(WorkerMod, WorkerCallback) ->
     {ok, Pid} = epc_sup:start_link(),
     Expected0 = [{specs, 1},
                  {active, 0},
                  {supervisors, 0},
                  {workers, 0}],
     ?assertEqual(Expected0, supervisor:count_children(Pid)),
-    {ok, WorkerSup} = pc_sup:start_link(epw, epw_dummy),
-    {ok, _EpcPid} = epc_sup:start_epc(WorkerSup),
+    {ok, WorkerSup} = pc_sup:start_link(WorkerMod, WorkerCallback),
+    {ok, _EpcPid} = epc_sup:start_epc(WorkerMod, WorkerSup),
     Expected1 = [{specs, 1},
                  {active, 1},
                  {supervisors, 0},
