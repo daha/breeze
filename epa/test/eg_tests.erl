@@ -65,9 +65,7 @@ behaviour_info_test() ->
     Expected = [{init, 1},
                 {generate, 2},
                 {terminate, 2}],
-    Actual = eg:behaviour_info(callbacks),
-    ?assertEqual(Expected, Actual),
-    ?assertEqual(undefined, eg:behaviour_info(foo)).
+    pc_lib:test_behaviour_info(?MODULE, Expected), ok.
 
 validate_module_test() ->
     pc_lib:validate_module(?MODULE), ok.
@@ -75,15 +73,33 @@ validate_module_test() ->
 mocked_tests_test_() ->
     pc_lib:mocked_tests(?MODULE).
 
+verify_emitted_message_is_multicasted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(multicast, all), ok.
+verify_emitted_message_is_randomcasted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(randomcast, random), ok.
+verify_emitted_message_is_keyhashcasted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(keyhashcast, keyhash), ok.
+
+verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
+    Msg = {foo, bar},
+    EmitTriggerFun = fun(_Pid) -> noop end,
+    EmitTriggerMock =
+        fun(Mock) ->
+                meck:expect(Mock, generate,
+                            fun(EmitFun, State) ->
+                                    EmitFun(Msg),
+                                    {ok, State}
+                            end)
+        end,
+    pc_lib:verify_emitted_message_is_sent_to_all_targets(
+      ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey).
+
+
 %% Internal functions
 create_mock() ->
     Mock = eg_mock,
     meck:new(Mock),
     meck:expect(Mock, init, fun(State) -> {ok, State} end),
-    meck:expect(Mock, generate,
-                fun(EmitFun, State) ->
-                        EmitFun({foo,bar}),
-                        {ok, State}
-                end),
+    meck:expect(Mock, generate, fun(_EmitFun, State) -> {ok, State} end),
     meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
     Mock.

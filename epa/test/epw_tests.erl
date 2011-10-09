@@ -65,9 +65,7 @@ behaviour_info_test() ->
     Expected = [{init, 1},
                 {process, 3},
                 {terminate, 2}],
-    Actual = epw:behaviour_info(callbacks),
-    ?assertEqual(Expected, Actual),
-    ?assertEqual(undefined, epw:behaviour_info(foo)).
+    pc_lib:test_behaviour_info(?MODULE, Expected), ok.
 
 validate_module_test() ->
     pc_lib:validate_module(?MODULE), ok.
@@ -76,33 +74,25 @@ mocked_tests_test_() ->
     pc_lib:mocked_tests(?MODULE).
 
 verify_emitted_message_is_multicasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(multicast, all).
+    verify_emitted_message_is_sent_to_all_targets(multicast, all), ok.
 verify_emitted_message_is_randomcasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(randomcast, random).
+    verify_emitted_message_is_sent_to_all_targets(randomcast, random), ok.
 verify_emitted_message_is_keyhashcasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(keyhashcast, keyhash).
+    verify_emitted_message_is_sent_to_all_targets(keyhashcast, keyhash), ok.
 
-verify_emitted_message_is_sent_to_all_targets(Func, DistributionKey) ->
-    Mock = create_mock(),
-    meck:expect(Mock, process,
-                fun(Msg, EmitFun, State) ->
-                        EmitFun(Msg),
-                        {ok, State}
-                end),
-    AnotherPid = hd(processes()),
-    Targets = [{self(), DistributionKey}, {AnotherPid, DistributionKey}],
-    {ok, Pid} = epw:start_link(Mock, [], [{targets, Targets}]),
-    meck:new(epc),
-    meck:expect(epc, Func, 2, ok),
+verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
     Msg = {foo, bar},
-    epw:process(Pid, Msg),
-    epw:sync(Pid),
-    ?assert(meck:validate(epc)),
-    ?assert(meck:called(epc, Func, [self(), Msg])),
-    ?assert(meck:called(epc, Func, [AnotherPid, Msg])),
-    epw:stop(Pid),
-    pc_lib:delete_mock(Mock),
-    meck:unload(epc).
+    EmitTriggerFun = fun(Pid) -> epw:process(Pid, Msg) end,
+    EmitTriggerMock =
+        fun(Mock) ->
+                meck:expect(Mock, process,
+                            fun(ProcessMsg, EmitFun, State) ->
+                                    EmitFun(ProcessMsg),
+                                    {ok, State}
+                            end)
+        end,
+    pc_lib:verify_emitted_message_is_sent_to_all_targets(
+      ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey).
 
 % Helper functions
 create_mock() ->

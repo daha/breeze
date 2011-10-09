@@ -45,6 +45,7 @@
 -include_lib("eunit/include/eunit.hrl").
 
 %% API
+-export([test_behaviour_info/2]).
 -export([test_start_stop/1]).
 -export([setup/1]).
 -export([should_return_the_state_in_stop/1]).
@@ -53,10 +54,15 @@
 
 -export([mocked_tests/1]).
 
--export([verify_emitted_message_is_sent_to_all_targets/3]).
+-export([verify_emitted_message_is_sent_to_all_targets/6]).
 
 -export([delete_mock/1]).
 
+test_behaviour_info(TestMod, Expected) ->
+    Mod = mod(TestMod),
+    Actual = Mod:behaviour_info(callbacks),
+    ?assertEqual(Expected, Actual),
+    ?assertEqual(undefined, Mod:behaviour_info(foo)).
 
 test_start_stop(TestMod) ->
     Mock = TestMod:create_mock(),
@@ -130,30 +136,24 @@ should_not_crash_on_random_data_to_gen_server_callbacks_([_Mod, Pid|_]) ->
     Pid ! RandomData,
     gen_server:call(Pid, RandomData).
 
-
-verify_emitted_message_is_sent_to_all_targets(TestMod, Func, DistributionKey) ->
+verify_emitted_message_is_sent_to_all_targets(
+  TestMod, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey) ->
     Mod = mod(TestMod),
     Mock = TestMod:create_mock(),
-    meck:expect(Mock, process,
-                fun(Msg, EmitFun, State) ->
-                        EmitFun(Msg),
-                        {ok, State}
-                end),
+    EmitTriggerMock(Mock), % Mock the behaviour to execute the EmitFun
+    meck:new(epc),
+    meck:expect(epc, EpcEmitFunc, 2, ok),
     AnotherPid = create_pid(),
     Targets = [{self(), DistributionKey}, {AnotherPid, DistributionKey}],
     {ok, Pid} = Mod:start_link(Mock, [], [{targets, Targets}]),
-    meck:new(epc),
-    meck:expect(epc, Func, 2, ok),
-    Msg = {foo, bar},
-    Mod:process(Pid, Msg),
+    EmitTriggerFun(Pid),
     Mod:sync(Pid),
     ?assert(meck:validate(epc)),
-    ?assert(meck:called(epc, Func, [self(), Msg])),
-    ?assert(meck:called(epc, Func, [AnotherPid, Msg])),
+    ?assert(meck:called(epc, EpcEmitFunc, [self(), Msg])),
+    ?assert(meck:called(epc, EpcEmitFunc, [AnotherPid, Msg])),
     Mod:stop(Pid),
     delete_mock(Mock),
     meck:unload(epc).
-
 
 %%%===================================================================
 %%% utility functions

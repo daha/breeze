@@ -59,7 +59,8 @@
 -record(state, {
                 callback,
                 user_state,
-                targets
+                targets,
+                timeout
                }).
 
 %%%===================================================================
@@ -109,9 +110,18 @@ sync(Pid) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Callback, UserArgs, _Args]) ->
+init([Callback, UserArgs, Args]) ->
+    Targets = proplists:get_value(targets, Args, []),
     {ok, UserState} = Callback:init(UserArgs),
-    {ok, #state{callback = Callback, user_state = UserState}, 0}.
+    Timeout = case Targets of
+                  [] -> infinity;
+                  _ -> 0
+              end,
+    State = #state{callback = Callback,
+                   user_state = UserState,
+                   targets = Targets,
+                   timeout = Timeout},
+    {ok, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -134,7 +144,7 @@ handle_call(stop, _From, State) ->
     UserState = Callback:terminate(normal, State#state.user_state),
     {stop, normal, {ok, UserState}, State};
 handle_call(Request, _From, State) ->
-    {reply, {error, {invalid_request, Request}}, State, 0}.
+    {reply, {error, {invalid_request, Request}}, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -147,7 +157,7 @@ handle_call(Request, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(_Msg, State) ->
-    {noreply, State, 0}.
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -159,8 +169,13 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_info(timeout, State) ->
+    Callback = State#state.callback,
+    {ok, UserState} = Callback:generate(i_make_emit_fun(State#state.targets),
+                                        State#state.user_state),
+    {noreply, State#state{user_state = UserState}};
 handle_info(_Info, State) ->
-    {noreply, State, 0}.
+    {noreply, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -190,4 +205,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+i_make_emit_fun(Targets) ->
+    fun(Msg) -> lists:foreach(
+                  fun({Pid, all}) ->
+                          epc:multicast(Pid, Msg);
+                     ({Pid, random}) ->
+                          epc:randomcast(Pid, Msg);
+                     ({Pid, keyhash}) ->
+                          epc:keyhashcast(Pid, Msg)
+                  end, Targets)
+    end.
 
