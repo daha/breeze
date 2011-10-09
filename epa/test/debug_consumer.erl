@@ -40,7 +40,8 @@
 %% A basic implementation of the epw behaviour used for debugging
 %% @end
 
--module(epw_debug).
+-module(debug_consumer).
+
 -behaviour(epw).
 -export([init/1, process/3, terminate/2]).
 

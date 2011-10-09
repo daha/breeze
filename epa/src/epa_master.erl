@@ -201,14 +201,15 @@ i_start_all_epc(Topology) ->
     ControllerList = i_start_all_epc(Topology, _ControllerList = []),
     {ok, ControllerList}.
 
-i_start_all_epc([{Name, WorkerMod, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
+i_start_all_epc([{Name, WorkerType, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
+    WorkerMod = get_worker_mode_by_type(WorkerType),
     {ok, WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
     {ok, Controller} = epc_sup:start_epc(WorkerMod, WorkerSup),
     i_start_all_epc(Rest, [{Name, Controller} | Acc]);
 i_start_all_epc([], Acc) ->
     Acc.
 
-i_connect_epcs([{Name, _WorkerMod, _Cb, _Children, Targets} | Rest], ControllerList) ->
+i_connect_epcs([{Name, _WorkerType, _Cb, _Children, Targets} | Rest], ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     i_connect_epcs_to_targets(Pid, Targets, ControllerList),
     i_connect_epcs(Rest, ControllerList);
@@ -225,7 +226,7 @@ i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
 
-i_start_workers([{Name, _WorkerMod, _Cb, NumberOfWorkers, _Targets} | Rest],
+i_start_workers([{Name, _WorkerType, _Cb, NumberOfWorkers, _Targets} | Rest],
 		ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     epc:start_workers(Pid, NumberOfWorkers),
@@ -350,9 +351,9 @@ i_check_target_types([]) ->
     ok.
 
 % i_check_topology_worker_types/1
-i_check_topology_worker_types([{_, epw, _, _, _} | Rest]) ->
+i_check_topology_worker_types([{_, producer, _, _, _} | Rest]) ->
     i_check_topology_worker_types(Rest);
-i_check_topology_worker_types([{_, eg, _, _, _} | Rest]) ->
+i_check_topology_worker_types([{_, consumer, _, _, _} | Rest]) ->
     i_check_topology_worker_types(Rest);
 i_check_topology_worker_types([{_, InvalidWorkerType, _, _, _} | _Rest]) ->
     {error, {invalid_worker_type, InvalidWorkerType}};
@@ -360,7 +361,8 @@ i_check_topology_worker_types([]) ->
     ok.
 
 % i_check_worker_callback_module/1
-i_check_worker_callback_module([{_, WorkerMod, WorkerCallback, _, _} | Rest]) ->
+i_check_worker_callback_module([{_, WorkerType, WorkerCallback, _, _} | Rest]) ->
+    WorkerMod = get_worker_mode_by_type(WorkerType),
     case WorkerMod:validate_module(WorkerCallback) of
         true ->
             i_check_worker_callback_module(Rest);
@@ -378,3 +380,8 @@ i_get_controller(Name, ControllerList) ->
 	_ ->
 	    {error, {not_found, Name}}
     end.
+
+get_worker_mode_by_type(producer) ->
+    eg;
+get_worker_mode_by_type(consumer) ->
+    epw.
