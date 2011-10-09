@@ -49,9 +49,19 @@
 -export([tested_module/0]).
 -export([create_mock/0]).
 
+% Exported functions
 tested_module() ->
     eg.
 
+create_mock() ->
+    Mock = eg_mock,
+    meck:new(Mock),
+    meck:expect(Mock, init, fun(State) -> {ok, State} end),
+    meck:expect(Mock, generate, fun(_EmitFun, State) -> {ok, State} end),
+    meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
+    Mock.
+
+% Tests in pc_lib
 start_stop_test() ->
     pc_lib:test_start_stop(?MODULE), ok.
 
@@ -83,23 +93,87 @@ verify_emitted_message_is_keyhashcasted_to_all_targets_test() ->
 verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
     Msg = {foo, bar},
     EmitTriggerFun = fun(_Pid) -> noop end,
-    EmitTriggerMock =
-        fun(Mock) ->
-                meck:expect(Mock, generate,
-                            fun(EmitFun, State) ->
-                                    EmitFun(Msg),
-                                    {ok, State}
-                            end)
-        end,
+    EmitTriggerMock = make_emitting_generate_mock(Msg),
     pc_lib:verify_emitted_message_is_sent_to_all_targets(
       ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey).
 
 
+% Local tests
+should_set_the_timer_after_every_message_test_() ->
+    {foreach, fun setup_timer_tests/0, fun teardown_timer_tests/1,
+     [{with, [T]} ||
+      T <- [
+            fun should_have_timeout_after_init_/1,
+            fun should_have_timeout_after_timeout_/1,
+            fun should_have_timeout_after_sync_/1,
+            fun should_have_timeout_after_handle_call_/1,
+            fun should_have_timeout_after_handle_cast_/1,
+            fun should_have_timeout_after_handle_info_/1,
+            fun(_) -> ok end
+            ]
+     ]}.
+
+should_have_timeout_after_init_([_Pid, Target, Msg | _]) ->
+    verify_continuous_generation(Target, Msg), ok.
+
+should_have_timeout_after_timeout_([Pid, Target, Msg | _]) ->
+    eg:sync(Pid),
+    PreCount = meck_improvements:calls(epc, multicast, [Target, Msg]),
+    timer:sleep(1), % enough time to make a number of calls
+    % The counter must increase with more then one, since increase
+    % with only one indicate no timeout after handling timeout.
+    ?assert((PreCount + 1) <
+                meck_improvements:calls(epc, multicast, [Target, Msg])).
+
+should_have_timeout_after_sync_([Pid, Target, Msg | _]) ->
+    eg:sync(Pid),
+    verify_continuous_generation(Target, Msg), ok.
+
+should_have_timeout_after_handle_call_([Pid, Target, Msg | _]) ->
+    gen_server:call(Pid, random_data()),
+    verify_continuous_generation(Target, Msg), ok.
+
+should_have_timeout_after_handle_cast_([Pid, Target, Msg | _]) ->
+    gen_server:cast(Pid, random_data()),
+    verify_continuous_generation(Target, Msg), ok.
+
+should_have_timeout_after_handle_info_([Pid, Target, Msg | _]) ->
+    Pid ! random_data(),
+    verify_continuous_generation(Target, Msg), ok.
+
+% Helper to the timeout tests
+verify_continuous_generation(Target, Msg) ->
+    PreCount = meck_improvements:calls(epc, multicast, [Target, Msg]),
+    timer:sleep(1), % enough time to make a number of calls
+    ?assert(PreCount < meck_improvements:calls(epc, multicast, [Target, Msg])).
+
 %% Internal functions
-create_mock() ->
-    Mock = eg_mock,
-    meck:new(Mock),
-    meck:expect(Mock, init, fun(State) -> {ok, State} end),
-    meck:expect(Mock, generate, fun(_EmitFun, State) -> {ok, State} end),
-    meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
-    Mock.
+make_emitting_generate_mock(Msg) ->
+    fun(Mock) ->
+            meck:expect(Mock, generate,
+                        fun(EmitFun, State) ->
+                                EmitFun(Msg),
+                                {ok, State}
+                        end)
+    end.
+
+setup_timer_tests() ->
+    Mock = create_mock(),
+    Msg = {foo, bar},
+    EmitTriggerMock = make_emitting_generate_mock(Msg),
+    EmitTriggerMock(Mock),
+    Target = pc_lib:create_pid(),
+    Targets = [{Target, all}],
+    meck:new(epc),
+    meck:expect(epc, multicast, 2, ok),
+    {ok, Pid} = eg:start_link(Mock, [], [{targets, Targets}]),
+    [Pid, Target, Msg, Mock].
+
+teardown_timer_tests([Pid, _Target, _Msg, Mock]) ->
+    eg:stop(Pid),
+    pc_lib:delete_mock(epc),
+    pc_lib:delete_mock(Mock),
+    ok.
+
+random_data() ->
+    {foo, make_ref(), self(), [1]}.

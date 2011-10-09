@@ -57,6 +57,7 @@
 -export([verify_emitted_message_is_sent_to_all_targets/6]).
 
 -export([delete_mock/1]).
+-export([create_pid/0]).
 
 test_behaviour_info(TestMod, Expected) ->
     Mod = mod(TestMod),
@@ -161,6 +162,8 @@ verify_emitted_message_is_sent_to_all_targets(
 delete_mock(Mock) ->
     meck:unload(Mock).
 
+create_pid() ->
+     spawn(fun() -> timer:sleep(infinity) end).
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
@@ -179,5 +182,3 @@ teardown([Mod, Pid, Mock | _]) ->
 mod(TestMod) ->
     TestMod:tested_module().
 
-create_pid() ->
-     spawn(fun() -> timer:sleep(infinity) end).

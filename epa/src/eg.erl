@@ -138,13 +138,13 @@ init([Callback, UserArgs, Args]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(sync, _From, State) ->
-    {reply, ok, State};
+    {reply, ok, State, State#state.timeout};
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
     UserState = Callback:terminate(normal, State#state.user_state),
     {stop, normal, {ok, UserState}, State};
 handle_call(Request, _From, State) ->
-    {reply, {error, {invalid_request, Request}}, State}.
+    {reply, {error, {invalid_request, Request}}, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -157,7 +157,7 @@ handle_call(Request, _From, State) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {noreply, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -173,9 +173,9 @@ handle_info(timeout, State) ->
     Callback = State#state.callback,
     {ok, UserState} = Callback:generate(i_make_emit_fun(State#state.targets),
                                         State#state.user_state),
-    {noreply, State#state{user_state = UserState}};
+    {noreply, State#state{user_state = UserState}, State#state.timeout};
 handle_info(_Info, State) ->
-    {noreply, State}.
+    {noreply, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
