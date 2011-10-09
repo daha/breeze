@@ -26,4 +26,4 @@
 * write simple epw:s that do useful work
 * Make the epw and eg behaviour handle code_change
 * Give the worker the possibility to change the timeout? (at end of file?)
-* Not ok to send use a eg as a epw (they must be first in the pipeline)
+* create a new module for the syntax checks

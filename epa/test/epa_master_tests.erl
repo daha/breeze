@@ -69,8 +69,9 @@ test_read_simple_config_and_start_epc(WorkerType, WorkerMod, WorkerCallback) ->
     {WorkerSup, [EpcPid|_]} = mock(),
 
     NumberOfWorkers = 2,
-    Config = [{topology, [{dummy, WorkerType, WorkerCallback, NumberOfWorkers, []}]}],
-
+    Config = [{topology, [{dummy, WorkerType, WorkerCallback, NumberOfWorkers,
+                           []}]}],
+    
     {ok, _Pid} = epa_master:start_link(Config),
 
     ?assert(meck:called(pc_supersup, start_worker_sup,
@@ -101,12 +102,11 @@ read_config_with_two_connected_epcs_test() ->
     mock_epw_callback(SenderCallback),
     mock_epw_callback(ReceiverCallback),
     Config = [{topology, [{sender, WorkerType, SenderCallback, SenderWorkers,
-			   [{receiver, all}]},
+                           [{receiver, all}]},
                           {receiver, WorkerType, ReceiverCallback,
                            ReceiverWorkers, []}
                          ]
               }],
-
     {ok, _Pid} = epa_master:start_link(Config),
 
     ?assert(meck:called(pc_supersup, start_worker_sup,
@@ -181,7 +181,8 @@ invalid_topology_target_syntax_check_test() ->
     InvalidTopology1 = [{topology, [{foo, consumer, bar, 1, foo}]}],
     InvalidTopology2 = [{topology, [{foo, consumer, bar, 1, [foo]}]}],
     InvalidTopology3 = [{topology, [{foo, consumer, bar, 1, [{foo}]}]}],
-    InvalidTopology4 = [{topology, [{foo, consumer, bar, 1, [{foo, bar, baz}]}]}],
+    InvalidTopology4 = [{topology, [{foo, consumer, bar, 1, 
+                                     [{foo, bar, baz}]}]}],
     InvalidTopology5 = [{topology, [{foo, consumer, bar, 1, [{4, bar}]}]}],
     InvalidTopology6 = [{topology, [{foo, consumer, bar, 1, [{foo, 5}]}]}],
 
@@ -271,6 +272,13 @@ invalid_topology_worker_callback_module_test() ->
                                       []}]}],
     ?assertEqual({error, {invalid_worker_callback_module, invalid_callback}},
                  epa_master:start_link(InvalidWorkerCallbackModule)).
+
+producers_is_not_allowed_as_consumers_test() ->
+    ProducerAsConsumer = [{topology,
+                           [{name1, consumer, epw_dummy, 1, [{name2, all}]},
+                            {name2, producer, eg_dummy, 1, []}]}],
+    ?assertEqual({error, {producer_as_consumer, name2}},
+                 epa_master:start_link(ProducerAsConsumer)).
 
 %% Internal functions
 mock() ->

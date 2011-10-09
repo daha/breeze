@@ -201,7 +201,7 @@ i_start_all_epc(Topology) ->
     ControllerList = i_start_all_epc(Topology, _ControllerList = []),
     {ok, ControllerList}.
 
-i_start_all_epc([{Name, WorkerType, WorkerCallback, _Children, _Targets} | Rest], Acc) ->
+i_start_all_epc([{Name, WorkerType, WorkerCallback, _C, _T} | Rest], Acc) ->
     WorkerMod = get_worker_mode_by_type(WorkerType),
     {ok, WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
     {ok, Controller} = epc_sup:start_epc(WorkerMod, WorkerSup),
@@ -209,7 +209,7 @@ i_start_all_epc([{Name, WorkerType, WorkerCallback, _Children, _Targets} | Rest]
 i_start_all_epc([], Acc) ->
     Acc.
 
-i_connect_epcs([{Name, _WorkerType, _Cb, _Children, Targets} | Rest], ControllerList) ->
+i_connect_epcs([{Name, _WType, _Cb, _C, Targets} | Rest], ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     i_connect_epcs_to_targets(Pid, Targets, ControllerList),
     i_connect_epcs(Rest, ControllerList);
@@ -241,7 +241,8 @@ i_check_config_syntax(Config) ->
                            fun i_check_topology_target_references/1,
                            fun i_check_topology_target_reference_types/1,
                            fun i_check_topology_worker_types/1,
-                           fun i_check_worker_callback_module/1
+                           fun i_check_worker_callback_module/1,
+                           fun i_check_producer_as_consumer/1
                            ]),
     Res.
 
@@ -370,6 +371,34 @@ i_check_worker_callback_module([{_, WorkerType, WorkerCallback, _, _} | Rest]) -
             {error, {invalid_worker_callback_module, WorkerCallback}}
     end;
 i_check_worker_callback_module([]) ->
+    ok.
+
+% i_check_producer_as_consumer/1
+i_check_producer_as_consumer(Topology) ->
+    ProducerNames = lists:foldl(
+                      fun({Name, producer, _, _, _}, Acc) -> [Name | Acc];
+                         (_, Acc) -> Acc
+                      end, [], Topology),
+    i_check_producer_as_consumer(Topology, ProducerNames).
+
+i_check_producer_as_consumer([{_, _, _, _, Targets} | Rest], ProducerNames) ->
+    case i_check_producer_as_consumer_target(Targets, ProducerNames) of
+        ok ->
+            i_check_producer_as_consumer(Rest, ProducerNames);
+        Error ->
+            Error
+    end;
+i_check_producer_as_consumer([], _ProducerNames) ->
+    ok.
+
+i_check_producer_as_consumer_target([{Name, _} | Rest], ProducerNames) ->
+        case lists:member(Name, ProducerNames) of
+            false ->
+               i_check_producer_as_consumer_target(Rest, ProducerNames);
+            _ ->
+                {error, {producer_as_consumer, Name}}
+        end;
+i_check_producer_as_consumer_target([], _ProducerNames) ->
     ok.
 
 % i_get_controller/2
