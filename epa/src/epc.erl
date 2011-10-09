@@ -241,7 +241,7 @@ i_make_options(#state{targets = Targets}) ->
     [{targets, Targets}].
 
 i_start_workers(SupPid, NumberOfWorkers, Options) ->
-    {ok, Workers} = epw_sup:start_workers(SupPid, NumberOfWorkers, Options),
+    {ok, Workers} = pc_sup:start_workers(SupPid, NumberOfWorkers, Options),
     i_monitor_workers(Workers).
 
 i_monitor_workers(Workers) ->

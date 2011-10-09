@@ -63,7 +63,7 @@ read_simple_config_and_start_epc_test() ->
 
     {ok, _Pid} = epa_master:start_link(Config),
 
-    ?assert(meck:called(epw_supersup, start_worker_sup, [WorkerCallback])),
+    ?assert(meck:called(pc_supersup, start_worker_sup, [WorkerCallback])),
     ?assert(meck:called(epc_sup, start_epc, [WorkerSup])),
     ?assertNot(meck:called(epc, set_targets, [])),
     ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers])),
@@ -85,8 +85,8 @@ read_config_with_two_connected_epcs_test() ->
 
     {ok, _Pid} = epa_master:start_link(Config),
 
-    ?assert(meck:called(epw_supersup, start_worker_sup, [SenderCallback])),
-    ?assert(meck:called(epw_supersup, start_worker_sup, [ReceiverCallback])),
+    ?assert(meck:called(pc_supersup, start_worker_sup, [SenderCallback])),
+    ?assert(meck:called(pc_supersup, start_worker_sup, [ReceiverCallback])),
     ?assertEqual(2, meck_improvements:calls(epc_sup, start_epc, [WorkerSup])),
     ?assert(meck:called(epc, set_targets, [EpcPid1, [{EpcPid2, all}]])),
     ?assert(meck:called(epc, start_workers, [EpcPid1, SenderWorkers])),
@@ -232,13 +232,13 @@ invalid_topology_worker_callback_module_test() ->
 
 %% Internal functions
 mock() ->
-    meck:new(epw_supersup),
+    meck:new(pc_supersup),
     meck:new(epc_sup),
     meck:new(epc),
     WorkerSup = create_pid(),
     EpcPids = lists:map(fun(_) -> create_pid() end, lists:seq(1, 3)),
     StartEpcRetVal = lists:zip(lists:duplicate(length(EpcPids), ok), EpcPids),
-    meck:expect(epw_supersup, start_worker_sup, 1, {ok, WorkerSup}),
+    meck:expect(pc_supersup, start_worker_sup, 1, {ok, WorkerSup}),
     meck:sequence(epc_sup, start_epc, 1, StartEpcRetVal),
     meck:expect(epc, set_targets, 2, ok),
     meck:expect(epc, start_workers, 2, ok),
@@ -258,7 +258,7 @@ teardown() ->
 unload_mocks() ->
     meck:unload(epc),
     meck:unload(epc_sup),
-    meck:unload(epw_supersup).
+    meck:unload(pc_supersup).
 
 create_pid() ->
      spawn(fun() -> timer:sleep(infinity) end).

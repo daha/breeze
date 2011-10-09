@@ -37,22 +37,22 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% Supervisor for epw - event processing workers
+%%
 %% @end
 
--module(epw_sup).
+-module(pc_supersup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/1]).
--export([stop/1]).
--export([start_worker/1]).
--export([start_workers/2]).
--export([start_workers/3]).
+-export([start_link/0]).
+-export([start_worker_sup/1]).
+-export([stop/0]).
 
 %% Supervisor callbacks
 -export([init/1]).
+
+-define(SERVER, ?MODULE).
 
 %%%===================================================================
 %%% API functions
@@ -62,29 +62,28 @@
 %% @doc
 %% Starts the supervisor
 %%
-%% @spec start_link(Module) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Module) ->
-    supervisor:start_link(?MODULE, [Module]).
+start_link() ->
+    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
-stop(Pid) ->
-    true = exit(Pid, normal),
+start_worker_sup(WorkerCallback) ->
+    case epw:validate_module(WorkerCallback) of
+        true ->
+            supervisor:start_child(?SERVER, [epw, WorkerCallback]);
+        false ->
+            {error, {invalid_callback_module, WorkerCallback}}
+    end.
+
+stop() ->
+    case whereis(?SERVER) of
+        undefined ->
+            ok;
+        Pid ->
+            true = exit(Pid, normal)
+    end,
     ok.
-
-start_worker(Pid) ->
-   case start_workers(Pid, 1) of
-       {ok, [WorkerPid]} ->
-           {ok, WorkerPid};
-       Result ->
-           Result
-   end.
-
-start_workers(Pid, NumberOfChildren) ->
-    start_workers(Pid, NumberOfChildren, []).
-
-start_workers(Pid, NumberOfChildren, Opts) ->
-    i_start_workers(Pid, NumberOfChildren, Opts, _Pids = []).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -103,23 +102,11 @@ start_workers(Pid, NumberOfChildren, Opts) ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Module]) ->
-    ChildSpec = {worker, {epw, start_link, [Module, []]},
-                 temporary, 5000, worker, [epw, Module]},
-    {ok, {{simple_one_for_one, 100, 1}, [ChildSpec]}}.
+init([]) ->
+    ChildSpec = {worker_sup, {pc_sup, start_link, []},
+                 transient, infinity, supervisor, [pc_sup]},
+    {ok, {{simple_one_for_one, 0, 1}, [ChildSpec]}}.
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-i_start_workers(_SupervisorPid, _NumberOfChildren = 0, _Opts, Pids) ->
-    {ok, Pids};
-i_start_workers(SupervisorPid, NumberOfChildren, Opts, Pids) ->
-    case i_start_child(SupervisorPid, Opts) of
-        {ok, Pid} ->
-            i_start_workers(SupervisorPid, NumberOfChildren -1, Opts, [Pid | Pids]);
-        {error, _} = Error ->
-            Error
-    end.
-
-i_start_child(SupervisorPid, Opts) ->
-    supervisor:start_child(SupervisorPid, [Opts]).

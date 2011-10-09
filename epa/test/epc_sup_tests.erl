@@ -62,7 +62,7 @@ start_epc_test() ->
                  {supervisors, 0},
                  {workers, 0}],
     ?assertEqual(Expected0, supervisor:count_children(Pid)),
-    {ok, WorkerSup} = epw_sup:start_link(epw_dummy),
+    {ok, WorkerSup} = pc_sup:start_link(epw, epw_dummy),
     {ok, _EpcPid} = epc_sup:start_epc(WorkerSup),
     Expected1 = [{specs, 1},
                  {active, 1},

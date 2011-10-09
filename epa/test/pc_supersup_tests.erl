@@ -40,68 +40,42 @@
 %%
 %% @end
 
--module(epw_sup_tests).
+-module(pc_supersup_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
+-export([]).
+
+
 start_stop_test() ->
-    {ok, Pid} = epw_sup:start_link(epw_dummy),
-    ?assert(is_process_alive(Pid)),
-    Expected = [{specs, 1},
-                {active, 0},
-                {supervisors, 0},
-                {workers, 0}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
-    ok = epw_sup:stop(Pid),
-    ok = epw_sup:stop(Pid).
+    {ok, Pid} = pc_supersup:start_link(),
+    ?assertNot(undefined == process_info(Pid)),
+    ?assertMatch(Pid when is_pid(Pid), whereis(pc_supersup)),
+    Ref = monitor(process, Pid),
+    ok = pc_supersup:stop(),
+    receive {'DOWN', Ref, process, _, _} -> ok end,
+    ?assert(undefined == process_info(Pid)),
+    ?assertEqual(undefined, whereis(pc_supersup)),
+    ok = pc_supersup:stop().
+
+should_not_start_with_invalid_callback_module_test() ->
+    pc_supersup:start_link(),
+    CallbackModule = invalid_callback_module,
+    ?assertEqual({error, {invalid_callback_module, CallbackModule}},
+        pc_supersup:start_worker_sup(CallbackModule)),
+    pc_supersup:stop().
 
 start_worker_test() ->
-    Pid = start(),
-
-    ?assertMatch({ok, _Pid}, epw_sup:start_worker(Pid)),
-
-    Expected = [{specs, 1},
-                {active, 1},
-                {supervisors, 0},
-                {workers, 1}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
-    stop(Pid).
-
-
-start_workers_test() ->
-    Pid = start(),
-    ?assertMatch({ok, [_Pid1, _Pid2]},
-                 epw_sup:start_workers(Pid, 2)),
-    Expected = [{specs, 1},
-                {active, 2},
-                {supervisors, 0},
-                {workers, 2}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
-    stop(Pid).
-
-fail_to_start_worker_test() ->
-     Pid = start(invalid_module),
-     ?assertMatch({error, _Reason}, epw_sup:start_worker(Pid)),
-     stop(Pid).
-
-workers_should_be_temporary_test() ->
-    Pid = start(),
-    {ok, [Pid1, _Pid2]} = epw_sup:start_workers(Pid, 2),
-    Ref = monitor(process, Pid1),
-    exit(Pid1, abnormal),
-    receive {'DOWN', Ref, process, Pid1, _Info} -> ok end,
-    Expected = [{specs, 1},
-                {active, 1},
-                {supervisors, 0},
-                {workers, 1}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)).
-
-% internal
-start() ->
-    start(epw_dummy).
-start(CallBackModule) ->
-    {ok, Pid} = epw_sup:start_link(CallBackModule),
-    Pid.
-
-stop(Pid) ->
-   epw_sup:stop(Pid).
+    {ok, Pid} = pc_supersup:start_link(),
+    Expected0 = [{specs, 1},
+                 {active, 0},
+                 {supervisors, 0},
+                 {workers, 0}],
+    ?assertEqual(Expected0, supervisor:count_children(Pid)),
+    {ok, _WorkerSup} = pc_supersup:start_worker_sup(epw_dummy),
+    Expected1 = [{specs, 1},
+                 {active, 1},
+                 {supervisors, 1},
+                 {workers, 0}],
+    ?assertEqual(Expected1, supervisor:count_children(Pid)),
+    pc_supersup:stop().

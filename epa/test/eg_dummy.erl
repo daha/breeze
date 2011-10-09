@@ -40,42 +40,18 @@
 %%
 %% @end
 
--module(epw_supersup_tests).
+-module(eg_dummy).
+-behaviour(eg).
 
--include_lib("eunit/include/eunit.hrl").
+-export([init/1, generate/2, terminate/2]).
 
--export([]).
+%% API Functions
+init(Args) ->
+    {ok, Args}.
 
+generate(_EmitFun, State) ->
+    {ok, State}.
 
-start_stop_test() ->
-    {ok, Pid} = epw_supersup:start_link(),
-    ?assertNot(undefined == process_info(Pid)),
-    ?assertMatch(Pid when is_pid(Pid), whereis(epw_supersup)),
-    Ref = monitor(process, Pid),
-    ok = epw_supersup:stop(),
-    receive {'DOWN', Ref, process, _, _} -> ok end,
-    ?assert(undefined == process_info(Pid)),
-    ?assertEqual(undefined, whereis(epw_supersup)),
-    ok = epw_supersup:stop().
+terminate(_Reason, State) ->
+    State.
 
-should_not_start_with_invalid_callback_module_test() ->
-    epw_supersup:start_link(),
-    CallbackModule = invalid_callback_module,
-    ?assertEqual({error, {invalid_callback_module, CallbackModule}},
-        epw_supersup:start_worker_sup(CallbackModule)),
-    epw_supersup:stop().
-
-start_worker_test() ->
-    {ok, Pid} = epw_supersup:start_link(),
-    Expected0 = [{specs, 1},
-                 {active, 0},
-                 {supervisors, 0},
-                 {workers, 0}],
-    ?assertEqual(Expected0, supervisor:count_children(Pid)),
-    {ok, _WorkerSup} = epw_supersup:start_worker_sup(epw_dummy),
-    Expected1 = [{specs, 1},
-                 {active, 1},
-                 {supervisors, 1},
-                 {workers, 0}],
-    ?assertEqual(Expected1, supervisor:count_children(Pid)),
-    epw_supersup:stop().

@@ -216,13 +216,13 @@ create_epw_behaviour_stub() ->
     MockModule.
 
 start(WorkerCallback) ->
-    {ok, WorkerSup} = epw_sup:start_link(WorkerCallback),
+    {ok, WorkerSup} = pc_sup:start_link(epw, WorkerCallback),
     {ok, Pid} = epc:start_link(WorkerSup),
     {Pid, WorkerSup}.
 
 teardown([Pid, WorkerSup, MockModule]) ->
     epc:stop(Pid),
-    epw_sup:stop(WorkerSup),
+    pc_sup:stop(WorkerSup),
     ok = meck:unload(MockModule),
     ok = meck:unload(epw).
 

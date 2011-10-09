@@ -24,13 +24,13 @@ Diagram over the processes:
                      /  |
                   1 /   |1
                  +-+   +-+
-      epc_sup -> | |   | | epw_supersup
+      epc_sup -> | |   | | pc_supersup
                1 +-+   +-+
                 /       |1
                /        |
             N /         |N
            +-+         +-+
-    epc -> | |         | | <- epw_sup
+    epc -> | |         | | <- pc_sup
            +-+         +-+
                        1|
                         |
