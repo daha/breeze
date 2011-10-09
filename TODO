@@ -1,6 +1,10 @@
-* Add a builder module which connects all epc:s (configures the epc:s)
-  - epc passes the informtion down to the children when they are
-    started as args to the supervisor
+* generalize epw to another module to share code with eg!
+* Create a raw event generator which is spawed with a {M,F,A} and then
+  it is on its own (possibly supervised via a supervisor_bridge)
+* Create a event generator behaviour based on gen_server and supervisor
+  * Give the worker the possibility to change the timeout? (at end of file?)
+* create a supervisor to the event generator (simple_one_for_one)
+* Figure out to pass configuration to workers
 * Route messages in epc to workers for
   * Hash on key X
   * one worker per key, create workers dynamically when needed
@@ -10,3 +14,18 @@
 * Add infinity to all gen_server:calls
 * catch errors from the epw behaviour implementations?
 * Extract the common code from the sup tests
+* flaky test:
+  epa_master_tests: valid_topology_terget_ref_type_test...*failed*
+  ::error:{assertMatch_failed,
+            [{module,epa_master_tests},
+             {line,163},
+             {expression,"epa_master : start_link ( ValidTargetRefType2 )"},
+             {expected,"{ ok , _Pid }"},
+             {value,{error,{already_started,<0.875.0>}}}]}
+    in function epa_master_tests:'-valid_topology_terget_ref_type_test/0-fun-1-'/0
+    in call from epa_master_tests:valid_topology_terget_ref_type_test/0
+* Stub epw_sup in epc_tests
+* write simple epw:s that do useful work
+* use erlang:exported_function
+* Make the epw and eg behaviour handle code_change
+* make sure eg do not start generate data before it has been configured

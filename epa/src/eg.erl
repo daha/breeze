@@ -37,20 +37,19 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% Event processing worker
+%%
 %% @end
+%% TODO: merge this module with epw
 
--module(epw).
+-module(eg).
 
 -behaviour(gen_server).
 
 %% API
--export([behaviour_info/1]).
 -export([start_link/3]).
 -export([stop/1]).
--export([process/2]).
 -export([sync/1]).
-
+-export([behaviour_info/1]).
 -export([validate_module/1]).
 
 %% gen_server callbacks
@@ -59,19 +58,13 @@
 
 -record(state, {
                 callback,
-                user_args,
+                user_state,
                 targets
                }).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-behaviour_info(callbacks) ->
-    [{init, 1},
-     {process, 3},
-     {terminate, 2}];
-behaviour_info(_Other) ->
-    undefined.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -83,11 +76,15 @@ behaviour_info(_Other) ->
 start_link(Callback, UserArgs, Args) ->
     gen_server:start_link(?MODULE, [Callback, UserArgs, Args], []).
 
-stop(Pid) ->
-    gen_server:call(Pid, stop).
+stop(Server) ->
+    gen_server:call(Server, stop).
 
-process(Pid, Msg) ->
-    gen_server:cast(Pid, {msg, Msg}).
+behaviour_info(callbacks) ->
+    [{init, 1},
+     {generate, 2},
+     {terminate, 2}];
+behaviour_info(_Other) ->
+    undefined.
 
 validate_module(Module) ->
     lists:all(
@@ -112,10 +109,9 @@ sync(Pid) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Callback, UserArgs0, Args]) ->
-    Targets = proplists:get_value(targets, Args, []),
-    {ok, UserArgs1} = Callback:init(UserArgs0),
-    {ok, #state{callback=Callback, user_args = UserArgs1, targets = Targets}}.
+init([Callback, UserArgs, _Args]) ->
+    {ok, UserState} = Callback:init(UserArgs),
+    {ok, #state{callback = Callback, user_state = UserState}, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -135,10 +131,10 @@ handle_call(sync, _From, State) ->
     {reply, ok, State};
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
-    UserArgs = Callback:terminate(normal, State#state.user_args),
-    {stop, normal, {ok, UserArgs}, State};
-handle_call(_Request, _From, State) ->
-    {reply, error, State}.
+    UserState = Callback:terminate(normal, State#state.user_state),
+    {stop, normal, {ok, UserState}, State};
+handle_call(Request, _From, State) ->
+    {reply, {error, {invalid_request, Request}}, State, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -150,13 +146,8 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({msg, Msg}, State) ->
-    Callback = State#state.callback,
-    {ok, UserArgs} = Callback:process(Msg, i_make_emit_fun(State#state.targets),
-                                      State#state.user_args),
-    {noreply, State#state{user_args = UserArgs}};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {noreply, State, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -168,8 +159,8 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Msg, State) ->
-    {noreply, State}.
+handle_info(_Info, State) ->
+    {noreply, State, 0}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -199,13 +190,4 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-i_make_emit_fun(Targets) ->
-    fun(Msg) -> lists:foreach(
-                  fun({Pid, all}) ->
-                          epc:multicast(Pid, Msg);
-                     ({Pid, random}) ->
-                          epc:randomcast(Pid, Msg);
-                     ({Pid, keyhash}) ->
-                          epc:keyhashcast(Pid, Msg)
-                  end, Targets)
-    end.
+

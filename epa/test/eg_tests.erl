@@ -40,18 +40,18 @@
 %%
 %% @end
 
--module(epw_tests).
+-module(eg_tests).
 
 -include_lib("eunit/include/eunit.hrl").
+
 
 % used by pc_lib
 -export([tested_module/0]).
 -export([create_mock/0]).
 
 tested_module() ->
-    epw.
+    eg.
 
-% Tests
 start_stop_test() ->
     pc_lib:test_start_stop(?MODULE), ok.
 
@@ -63,11 +63,11 @@ should_call_terminate_on_stop_test() ->
 
 behaviour_info_test() ->
     Expected = [{init, 1},
-                {process, 3},
+                {generate, 2},
                 {terminate, 2}],
-    Actual = epw:behaviour_info(callbacks),
+    Actual = eg:behaviour_info(callbacks),
     ?assertEqual(Expected, Actual),
-    ?assertEqual(undefined, epw:behaviour_info(foo)).
+    ?assertEqual(undefined, eg:behaviour_info(foo)).
 
 validate_module_test() ->
     pc_lib:validate_module(?MODULE), ok.
@@ -75,40 +75,15 @@ validate_module_test() ->
 mocked_tests_test_() ->
     pc_lib:mocked_tests(?MODULE).
 
-verify_emitted_message_is_multicasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(multicast, all).
-verify_emitted_message_is_randomcasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(randomcast, random).
-verify_emitted_message_is_keyhashcasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(keyhashcast, keyhash).
-
-verify_emitted_message_is_sent_to_all_targets(Func, DistributionKey) ->
-    Mock = create_mock(),
-    meck:expect(Mock, process,
-                fun(Msg, EmitFun, State) ->
-                        EmitFun(Msg),
-                        {ok, State}
-                end),
-    AnotherPid = hd(processes()),
-    Targets = [{self(), DistributionKey}, {AnotherPid, DistributionKey}],
-    {ok, Pid} = epw:start_link(Mock, [], [{targets, Targets}]),
-    meck:new(epc),
-    meck:expect(epc, Func, 2, ok),
-    Msg = {foo, bar},
-    epw:process(Pid, Msg),
-    epw:sync(Pid),
-    ?assert(meck:validate(epc)),
-    ?assert(meck:called(epc, Func, [self(), Msg])),
-    ?assert(meck:called(epc, Func, [AnotherPid, Msg])),
-    epw:stop(Pid),
-    pc_lib:delete_mock(Mock),
-    meck:unload(epc).
-
-% Helper functions
+%% Internal functions
 create_mock() ->
-    Mock = epw_mock,
+    Mock = eg_mock,
     meck:new(Mock),
     meck:expect(Mock, init, fun(State) -> {ok, State} end),
-    meck:expect(Mock, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
+    meck:expect(Mock, generate,
+                fun(EmitFun, State) ->
+                        EmitFun({foo,bar}),
+                        {ok, State}
+                end),
     meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
     Mock.

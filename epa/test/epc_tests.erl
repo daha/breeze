@@ -47,19 +47,19 @@
 tests_with_mock_test_() ->
     {foreach, fun setup/0, fun teardown/1,
       [{with, [T]} ||
-	  T <- [fun t_start_stop/1,
-		fun t_start_workers/1,
-		fun t_should_not_allow_start_workers_once/1,
-		fun t_restart_worker_when_it_crash/1,
-		fun t_restarted_worker_should_keep_its_place/1,
-		fun t_multicast/1,
-		fun t_sync/1,
-		fun t_randomcast/1,
-		fun t_keyhashcast/1,
-		fun t_keyhashcast_error/1,
-		fun t_config_with_one_epc_target/1,
-		fun t_should_not_crash_on_random_data_to_gen_server_callbacks/1
-	       ]]}.
+       T <- [fun t_start_stop/1,
+             fun t_start_workers/1,
+             fun t_should_not_allow_start_workers_once/1,
+             fun t_restart_worker_when_it_crash/1,
+             fun t_restarted_worker_should_keep_its_place/1,
+             fun t_multicast/1,
+             fun t_sync/1,
+             fun t_randomcast/1,
+             fun t_keyhashcast/1,
+             fun t_keyhashcast_error/1,
+             fun t_config_with_one_epc_target/1,
+             fun t_should_not_crash_on_random_data_to_gen_server_callbacks/1
+            ]]}.
 
 t_start_stop([Pid | _]) ->
     ?assertNot(undefined == process_info(Pid)).
