@@ -114,7 +114,7 @@ should_set_the_timer_after_every_message_test_() ->
      ]}.
 
 should_have_timeout_after_init_([_Pid, Target, Msg | _]) ->
-    verify_continuous_generation(Target, Msg), ok.
+    verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_timeout_([Pid, Target, Msg | _]) ->
     eg:sync(Pid),
@@ -127,22 +127,22 @@ should_have_timeout_after_timeout_([Pid, Target, Msg | _]) ->
 
 should_have_timeout_after_sync_([Pid, Target, Msg | _]) ->
     eg:sync(Pid),
-    verify_continuous_generation(Target, Msg), ok.
+    verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_handle_call_([Pid, Target, Msg | _]) ->
     gen_server:call(Pid, random_data()),
-    verify_continuous_generation(Target, Msg), ok.
+    verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_handle_cast_([Pid, Target, Msg | _]) ->
     gen_server:cast(Pid, random_data()),
-    verify_continuous_generation(Target, Msg), ok.
+    verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_handle_info_([Pid, Target, Msg | _]) ->
     Pid ! random_data(),
-    verify_continuous_generation(Target, Msg), ok.
+    verify_continuous_timeouts(Target, Msg), ok.
 
 % Helper to the timeout tests
-verify_continuous_generation(Target, Msg) ->
+verify_continuous_timeouts(Target, Msg) ->
     PreCount = meck_improvements:calls(epc, multicast, [Target, Msg]),
     timer:sleep(1), % enough time to make a number of calls
     ?assert(PreCount < meck_improvements:calls(epc, multicast, [Target, Msg])).

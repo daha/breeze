@@ -215,4 +215,3 @@ i_make_emit_fun(Targets) ->
                           epc:keyhashcast(Pid, Msg)
                   end, Targets)
     end.
-

@@ -48,10 +48,19 @@
 -export([tested_module/0]).
 -export([create_mock/0]).
 
+% Exported functions
 tested_module() ->
     epw.
 
-% Tests
+create_mock() ->
+    Mock = epw_mock,
+    meck:new(Mock),
+    meck:expect(Mock, init, fun(State) -> {ok, State} end),
+    meck:expect(Mock, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
+    meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
+    Mock.
+
+% Tests in pc_tests_common
 start_stop_test() ->
     pc_tests_common:test_start_stop(?MODULE), ok.
 
@@ -93,12 +102,3 @@ verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
         end,
     pc_tests_common:verify_emitted_message_is_sent_to_all_targets(
       ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey).
-
-% Helper functions
-create_mock() ->
-    Mock = epw_mock,
-    meck:new(Mock),
-    meck:expect(Mock, init, fun(State) -> {ok, State} end),
-    meck:expect(Mock, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
-    meck:expect(Mock, terminate, fun(_Reason, State) -> State end),
-    Mock.
