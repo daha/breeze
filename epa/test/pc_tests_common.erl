@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(pc_lib).
+-module(pc_tests_common).
 
 -include_lib("eunit/include/eunit.hrl").
 

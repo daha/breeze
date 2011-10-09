@@ -44,7 +44,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-% used by pc_lib
+% used by pc_tests_common
 -export([tested_module/0]).
 -export([create_mock/0]).
 
@@ -53,25 +53,25 @@ tested_module() ->
 
 % Tests
 start_stop_test() ->
-    pc_lib:test_start_stop(?MODULE), ok.
+    pc_tests_common:test_start_stop(?MODULE), ok.
 
 should_return_the_state_in_stop_test() ->
-    pc_lib:should_return_the_state_in_stop(?MODULE), ok.
+    pc_tests_common:should_return_the_state_in_stop(?MODULE), ok.
 
 should_call_terminate_on_stop_test() ->
-    pc_lib:should_call_terminate_on_stop(?MODULE), ok.
+    pc_tests_common:should_call_terminate_on_stop(?MODULE), ok.
 
 behaviour_info_test() ->
     Expected = [{init, 1},
                 {process, 3},
                 {terminate, 2}],
-    pc_lib:test_behaviour_info(?MODULE, Expected), ok.
+    pc_tests_common:test_behaviour_info(?MODULE, Expected), ok.
 
 validate_module_test() ->
-    pc_lib:validate_module(?MODULE), ok.
+    pc_tests_common:validate_module(?MODULE), ok.
 
 mocked_tests_test_() ->
-    pc_lib:mocked_tests(?MODULE).
+    pc_tests_common:mocked_tests(?MODULE).
 
 verify_emitted_message_is_multicasted_to_all_targets_test() ->
     verify_emitted_message_is_sent_to_all_targets(multicast, all), ok.
@@ -91,7 +91,7 @@ verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
                                     {ok, State}
                             end)
         end,
-    pc_lib:verify_emitted_message_is_sent_to_all_targets(
+    pc_tests_common:verify_emitted_message_is_sent_to_all_targets(
       ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey).
 
 % Helper functions

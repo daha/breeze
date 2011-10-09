@@ -1,10 +1,8 @@
 * generalize epw to another module to share code with eg!
 * Create a raw event generator which is spawed with a {M,F,A} and then
   it is on its own (possibly supervised via a supervisor_bridge)
-* Create a event generator behaviour based on gen_server and supervisor
-  * Give the worker the possibility to change the timeout? (at end of file?)
 * create a supervisor to the event generator (simple_one_for_one)
-* Figure out to pass configuration to workers
+* Figure out a way to pass configuration to workers
 * Route messages in epc to workers for
   * Hash on key X
   * one worker per key, create workers dynamically when needed
@@ -26,6 +24,5 @@
     in call from epa_master_tests:valid_topology_terget_ref_type_test/0
 * Stub epw_sup in epc_tests
 * write simple epw:s that do useful work
-* use erlang:exported_function
 * Make the epw and eg behaviour handle code_change
-* make sure eg do not start generate data before it has been configured
+* Give the worker the possibility to change the timeout? (at end of file?)
