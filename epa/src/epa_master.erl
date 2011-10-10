@@ -62,6 +62,8 @@
 
 -export([get_controller/1]).
 
+-export([get_worker_mode_by_type/1]).
+
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
@@ -82,7 +84,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Config) when is_list(Config) ->
-    case i_check_config_syntax(Config) of
+    case config_validator:check_config(Config) of
         ok ->
             gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []);
         Error ->
@@ -94,6 +96,12 @@ stop() ->
 
 get_controller(Name) when is_atom(Name) ->
     gen_server:call(?SERVER, {get_controller, Name}).
+
+% TODO: find a better module for these functions
+get_worker_mode_by_type(producer) ->
+    eg;
+get_worker_mode_by_type(consumer) ->
+    epw.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -197,6 +205,7 @@ i_start_topology(Topology) ->
     i_start_workers(Topology, ControllerList),
     ControllerList.
 
+% i_start_all_epc/1
 i_start_all_epc(Topology) ->
     ControllerList = i_start_all_epc(Topology, _ControllerList = []),
     {ok, ControllerList}.
@@ -209,6 +218,7 @@ i_start_all_epc([{Name, WorkerType, WorkerCallback, _C, _T} | Rest], Acc) ->
 i_start_all_epc([], Acc) ->
     Acc.
 
+% i_connect_epcs/2
 i_connect_epcs([{Name, _WType, _Cb, _C, Targets} | Rest], ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     i_connect_epcs_to_targets(Pid, Targets, ControllerList),
@@ -226,179 +236,13 @@ i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
 
+% i_start_workers/1
 i_start_workers([{Name, _WorkerType, _Cb, NumberOfWorkers, _Targets} | Rest],
 		ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     epc:start_workers(Pid, NumberOfWorkers),
     i_start_workers(Rest, ControllerList);
 i_start_workers([], _ControllerList) ->
-    ok.
-
-i_check_config_syntax(Config) ->
-    Topology = proplists:get_value(topology, Config, []),
-    Res = i_check_all(Topology, [fun i_check_topology_syntax/1,
-                           fun i_check_topology_duplicated_names/1,
-                           fun i_check_topology_target_references/1,
-                           fun i_check_topology_target_reference_types/1,
-                           fun i_check_topology_worker_types/1,
-                           fun i_check_worker_callback_module/1,
-                           fun i_check_producer_as_consumer/1
-                           ]),
-    Res.
-
-i_check_all(Topology, [CheckFun | CheckFuns]) ->
-    case CheckFun(Topology) of
-        ok ->
-            i_check_all(Topology, CheckFuns);
-        Error ->
-            Error
-    end;
-i_check_all(_Topology, []) ->
-    ok.
-
-
-% i_check_topology_syntax/1
-i_check_topology_syntax([Worker|Rest]) when is_tuple(Worker) ->
-    case i_check_worker_tuple(Worker) of
-        ok ->
-            i_check_topology_syntax(Rest);
-        Error ->
-            Error
-    end;
-i_check_topology_syntax([InvalidWorker|_Rest]) ->
-    {error, {invalid_topology_syntax, InvalidWorker}};
-i_check_topology_syntax([]) ->
-    ok.
-
-i_check_worker_tuple({Name, Type, WorkerCallback, NumWorkers, Targets}) when
-      is_atom(Name) andalso
-      is_atom(Type) andalso
-      is_atom(WorkerCallback) andalso
-      is_integer(NumWorkers) andalso
-      is_list(Targets) ->
-    i_check_targets(Targets);
-i_check_worker_tuple(Tuple) ->
-    {error, {invalid_topology_syntax, Tuple}}.
-
-i_check_targets([{Name, Type}|Rest]) when is_atom(Name) andalso is_atom(Type) ->
-    i_check_targets(Rest);
-i_check_targets([InvalidTarget|_Rest]) ->
-    {error, {invalid_topology_target_syntax, InvalidTarget}};
-i_check_targets([]) ->
-    ok.
-
-% i_check_topology_duplicated_names/1
-i_check_topology_duplicated_names(Topology) ->
-   i_check_topology_duplicated_names(Topology, _ValidNames = []).
-
-i_check_topology_duplicated_names([{Name, _, _, _, _} | Rest], ValidNames) ->
-    case lists:member(Name, ValidNames) of
-        true ->
-            {error, duplicated_worker_name};
-        _ ->
-            i_check_topology_duplicated_names(Rest, [Name | ValidNames])
-    end;
-i_check_topology_duplicated_names([], _ValidNames) ->
-    ok.
-
-% i_check_topology_target_references/1
-i_check_topology_target_references(Topology) ->
-    i_check_topology_target_references(Topology, []).
-
-i_check_topology_target_references([{Name, _, _, _, Targets} | Rest], ConsumedNames) ->
-    ValidNames = ConsumedNames ++ i_extract_names(Rest),
-    case i_check_target_names_is_valid(Targets, ValidNames) of
-        ok ->
-            i_check_topology_target_references(Rest, [Name | ConsumedNames]);
-        Error ->
-            Error
-    end;
-i_check_topology_target_references([], _) ->
-    ok.
-
-i_check_target_names_is_valid([], _ValidNames) ->
-    ok;
-i_check_target_names_is_valid([{TargetName, _} | Rest], ValidNames) ->
-    case lists:member(TargetName, ValidNames) of
-        true ->
-            i_check_target_names_is_valid(Rest, ValidNames);
-        _ ->
-            {error, {invalid_target_ref, TargetName}}
-    end.
-
-i_extract_names(List) ->
-    lists:map(fun(Worker) -> element(1, Worker) end, List).
-
-% i_check_topology_target_reference_types/1
-i_check_topology_target_reference_types([{_, _, _, _, Targets} | Rest]) ->
-    case i_check_target_types(Targets) of
-        ok ->
-            i_check_topology_target_reference_types(Rest);
-        Error ->
-            Error
-    end;
-i_check_topology_target_reference_types([]) ->
-    ok.
-
-i_check_target_types([{_, all} |Rest]) ->
-    i_check_target_types(Rest);
-i_check_target_types([{_, random} | Rest]) ->
-    i_check_target_types(Rest);
-i_check_target_types([{_, keyhash} | Rest]) ->
-    i_check_target_types(Rest);
-i_check_target_types([{_, InvalidType} | _Rest]) ->
-    {error, {invalid_target_ref_type, InvalidType}};
-i_check_target_types([]) ->
-    ok.
-
-% i_check_topology_worker_types/1
-i_check_topology_worker_types([{_, producer, _, _, _} | Rest]) ->
-    i_check_topology_worker_types(Rest);
-i_check_topology_worker_types([{_, consumer, _, _, _} | Rest]) ->
-    i_check_topology_worker_types(Rest);
-i_check_topology_worker_types([{_, InvalidWorkerType, _, _, _} | _Rest]) ->
-    {error, {invalid_worker_type, InvalidWorkerType}};
-i_check_topology_worker_types([]) ->
-    ok.
-
-% i_check_worker_callback_module/1
-i_check_worker_callback_module([{_, WorkerType, WorkerCallback, _, _} | Rest]) ->
-    WorkerMod = get_worker_mode_by_type(WorkerType),
-    case WorkerMod:validate_module(WorkerCallback) of
-        true ->
-            i_check_worker_callback_module(Rest);
-        _E ->
-            {error, {invalid_worker_callback_module, WorkerCallback}}
-    end;
-i_check_worker_callback_module([]) ->
-    ok.
-
-% i_check_producer_as_consumer/1
-i_check_producer_as_consumer(Topology) ->
-    ProducerNames = lists:foldl(
-                      fun({Name, producer, _, _, _}, Acc) -> [Name | Acc];
-                         (_, Acc) -> Acc
-                      end, [], Topology),
-    i_check_producer_as_consumer(Topology, ProducerNames).
-
-i_check_producer_as_consumer([{_, _, _, _, Targets} | Rest], ProducerNames) ->
-    case i_check_producer_as_consumer_target(Targets, ProducerNames) of
-        ok ->
-            i_check_producer_as_consumer(Rest, ProducerNames);
-        Error ->
-            Error
-    end;
-i_check_producer_as_consumer([], _ProducerNames) ->
-    ok.
-
-i_check_producer_as_consumer_target([{Name, _} | Rest], ProducerNames) ->
-        case lists:member(Name, ProducerNames) of
-            false ->
-               i_check_producer_as_consumer_target(Rest, ProducerNames);
-            _ ->
-                {error, {producer_as_consumer, Name}}
-        end;
-i_check_producer_as_consumer_target([], _ProducerNames) ->
     ok.
 
 % i_get_controller/2
@@ -409,8 +253,3 @@ i_get_controller(Name, ControllerList) ->
 	_ ->
 	    {error, {not_found, Name}}
     end.
-
-get_worker_mode_by_type(producer) ->
-    eg;
-get_worker_mode_by_type(consumer) ->
-    epw.

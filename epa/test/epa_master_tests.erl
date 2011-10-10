@@ -71,7 +71,7 @@ test_read_simple_config_and_start_epc(WorkerType, WorkerMod, WorkerCallback) ->
     NumberOfWorkers = 2,
     Config = [{topology, [{dummy, WorkerType, WorkerCallback, NumberOfWorkers,
                            []}]}],
-    
+
     {ok, _Pid} = epa_master:start_link(Config),
 
     ?assert(meck:called(pc_supersup, start_worker_sup,
@@ -144,141 +144,14 @@ should_not_crash_on_random_data_to_gen_server_callbacks_test() ->
     epa_master:stop().
 
 
-%
-% Config check tests
-%
-invalid_topology_syntax_check_test() ->
-    InvalidTopology1 = [{topology, [foo]}],
-    InvalidTopology2 = [{topology, [{foo, consumer, bar, 1}]}],
-    InvalidTopology3 = [{topology, [{foo, consumer, bar, 1, [], []}]}],
-    InvalidTopology4 = [{topology, [{1, consumer, bar, 1, foo}]}],
-    InvalidTopology5 = [{topology, [{foo, 2, bar, 1, foo}]}],
-    InvalidTopology6 = [{topology, [{foo, consumer, 3, 1, foo}]}],
-    InvalidTopology7 = [{topology, [{foo, consumer, bar, baz, []}]}],
-
-    ?assertEqual({error, {invalid_topology_syntax, foo}},
-                 epa_master:start_link(InvalidTopology1)),
-    ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, 1}}},
-                 epa_master:start_link(InvalidTopology2)),
-    ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, 1, [], []}}},
-                 epa_master:start_link(InvalidTopology3)),
-    ?assertEqual({error, {invalid_topology_syntax,
-                          {1, consumer, bar, 1, foo}}},
-                 epa_master:start_link(InvalidTopology4)),
-    ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, 2, bar, 1, foo}}},
-                 epa_master:start_link(InvalidTopology5)),
-    ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, 3, 1, foo}}},
-                 epa_master:start_link(InvalidTopology6)),
-    ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, baz, []}}},
-                 epa_master:start_link(InvalidTopology7)).
-
-invalid_topology_target_syntax_check_test() ->
-    InvalidTopology1 = [{topology, [{foo, consumer, bar, 1, foo}]}],
-    InvalidTopology2 = [{topology, [{foo, consumer, bar, 1, [foo]}]}],
-    InvalidTopology3 = [{topology, [{foo, consumer, bar, 1, [{foo}]}]}],
-    InvalidTopology4 = [{topology, [{foo, consumer, bar, 1, 
-                                     [{foo, bar, baz}]}]}],
-    InvalidTopology5 = [{topology, [{foo, consumer, bar, 1, [{4, bar}]}]}],
-    InvalidTopology6 = [{topology, [{foo, consumer, bar, 1, [{foo, 5}]}]}],
-
-    ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, 1, foo}}},
-                 epa_master:start_link(InvalidTopology1)),
-    ?assertEqual({error, {invalid_topology_target_syntax, foo}},
-                 epa_master:start_link(InvalidTopology2)),
-    ?assertEqual({error, {invalid_topology_target_syntax, {foo}}},
-                 epa_master:start_link(InvalidTopology3)),
-    ?assertEqual({error, {invalid_topology_target_syntax, {foo, bar, baz}}},
-                 epa_master:start_link(InvalidTopology4)),
-    ?assertEqual({error, {invalid_topology_target_syntax, {4, bar}}},
-                 epa_master:start_link(InvalidTopology5)),
-    ?assertEqual({error, {invalid_topology_target_syntax, {foo, 5}}},
-                 epa_master:start_link(InvalidTopology6)).
-
-invalid_topology_target_references_test() ->
-    InvalidTargetRef1 = [{topology, [{name, consumer, bar, 1, [{name, all}]}]}],
-    InvalidTargetRef2 = [{topology, [{name, consumer, bar, 1,
-                                      [{invalid_name, all}]}]}],
-    InvalidTargetRef3 = [{topology, [{name1, consumer, bar, 1, []},
-                                     {name2, consumer, bar, 1,
-                                      [{name1, all},
-                                       {invalid_name, all}]}]}],
-    ?assertEqual({error, {invalid_target_ref, name}},
-                 epa_master:start_link(InvalidTargetRef1)),
-    ?assertEqual({error, {invalid_target_ref, invalid_name}},
-                 epa_master:start_link(InvalidTargetRef2)),
-    ?assertEqual({error, {invalid_target_ref, invalid_name}},
-                 epa_master:start_link(InvalidTargetRef3)),
+should_check_topology_test() ->
+    meck:new(config_validator),
+    Error = {error, some_error},
+    meck:expect(config_validator, check_config, 1, Error),
+    Config = [{topology, [foo]}],
+    ?assertEqual(Error, config_validator:check_config(Config)),
+    meck:unload(config_validator),
     ok.
-
-invalid_topology_target_ref_type_test() ->
-    InvalidTargetRefType = [{topology, [{name1, consumer, bar, 1, []},
-                                         {name2, consumer, bar, 1,
-                                          [{name1, foo}]}]}],
-    ?assertEqual({error, {invalid_target_ref_type, foo}},
-                 epa_master:start_link(InvalidTargetRefType)).
-
-valid_topology_target_ref_type_test() ->
-    ValidTargetRefType1 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                      {name2, consumer, epw_dummy, 1,
-                                       [{name1, all}]}]}],
-    ValidTargetRefType2 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                      {name2, consumer, epw_dummy, 1,
-                                       [{name1, random}]}]}],
-    ValidTargetRefType3 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                      {name2, consumer, epw_dummy, 1,
-                                       [{name1, keyhash}]}]}],
-    ValidTargetRefType4 = [{topology, [{name1, producer, eg_dummy, 1,
-                                        [{name2, keyhash}]},
-                                      {name2, consumer, epw_dummy, 1, []}]}],
-    mock(),
-    ?assertMatch({ok, _Pid},
-                 epa_master:start_link(ValidTargetRefType1)),
-    epa_master:stop(),
-
-    ?assertMatch({ok, _Pid},
-                 epa_master:start_link(ValidTargetRefType2)),
-    epa_master:stop(),
-
-    ?assertMatch({ok, _Pid},
-                 epa_master:start_link(ValidTargetRefType3)),
-    epa_master:stop(),
-
-    ?assertMatch({ok, _Pid},
-                 epa_master:start_link(ValidTargetRefType4)),
-
-    teardown(),
-    ok.
-
-invalid_topology_duplicated_worker_name_test() ->
-    DupName = [{topology, [{name, consumer, bar, 1, []},
-                           {name, consumer, bar, 1, []}]}],
-    ?assertEqual({error, duplicated_worker_name},
-                 epa_master:start_link(DupName)).
-
-invalid_topology_worker_type_test() ->
-    InvalidWorkerType = [{topology, [{name, foo, bar, 1, []}]}],
-    ?assertEqual({error, {invalid_worker_type, foo}},
-                 epa_master:start_link(InvalidWorkerType)).
-
-invalid_topology_worker_callback_module_test() ->
-    InvalidWorkerCallbackModule = [{topology,
-                                    [{name, consumer, invalid_callback, 1,
-                                      []}]}],
-    ?assertEqual({error, {invalid_worker_callback_module, invalid_callback}},
-                 epa_master:start_link(InvalidWorkerCallbackModule)).
-
-producers_is_not_allowed_as_consumers_test() ->
-    ProducerAsConsumer = [{topology,
-                           [{name1, consumer, epw_dummy, 1, [{name2, all}]},
-                            {name2, producer, eg_dummy, 1, []}]}],
-    ?assertEqual({error, {producer_as_consumer, name2}},
-                 epa_master:start_link(ProducerAsConsumer)).
 
 %% Internal functions
 mock() ->
