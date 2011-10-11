@@ -90,9 +90,12 @@ process(Pid, Msg) ->
     gen_server:cast(Pid, {msg, Msg}).
 
 validate_module(Module) ->
-    lists:all(
-      fun({Func, Arity}) -> erlang:function_exported(Module, Func, Arity) end,
-      behaviour_info(callbacks)).
+    try Exports = Module:module_info(exports),
+        Missing = behaviour_info(callbacks) -- Exports,
+        [] == Missing
+    catch _:_ ->
+              false
+    end.
 
 sync(Pid) ->
     gen_server:call(Pid, sync).
