@@ -1,15 +1,27 @@
-* Figure out a way to pass configuration to workers
-* Give the workers an id, starting from 1, and total worker count?
-* generalize epw to another module to share code with eg!
-* Create a raw event generator which is spawed with a {M,F,A} and then
-  it is on its own (possibly supervised via a supervisor_bridge)
+HIGH:
+* starts consumers first including workers then start producers and their
+  workers and then their targets
 * Route messages in epc to workers for
-  * Hash on key X
   * one worker per key, create workers dynamically when needed
-* Add loop detection when verifying the topology
+* Figure out a way to pass configuration to workers
+* write simple epw:s that do useful work
+
+MEDIUM:
 * add possibility for worker to give ets table to epc, requires the
   epc to be passed as an argument in init
+* restrict the producers if the consumers can't cope with the load
+* Add possibility to reset all the workers, to start fresh without restarting all
+* generalize epw to another module to share code with eg!
+* Give the workers an id, starting from 1, and total worker count?
 * Add infinity to all gen_server:calls
+* check message queue size, have a way to report it
+
+LOW:
+* Route messages in epc to workers for
+  * Hash on key X
+* Create a raw event generator which is spawned with a {M,F,A} and then
+  it is on its own (possibly supervised via a supervisor_bridge)
+* Add loop detection when verifying the topology
 * catch errors from the epw behaviour implementations?
 * Extract the common code from the sup tests
 * flaky test:
@@ -23,12 +35,5 @@
     in function epa_master_tests:'-valid_topology_terget_ref_type_test/0-fun-1-'/0
     in call from epa_master_tests:valid_topology_terget_ref_type_test/0
 * Stub epw_sup in epc_tests
-* write simple epw:s that do useful work
 * Make the epw and eg behaviour handle code_change
 * Give the worker the possibility to change the timeout? (at end of file?)
-* starts consumers first including workers then start producers and their
-  workers and then their targets
-* Add test for randomcast not handling no workers.
-* check message queue size, have a way to report it
-* restrict the producers if the consumers can't cope with the load
-* Add possibility to reset all the workers, to start fresh without restarting all
