@@ -47,7 +47,7 @@
 %% API
 -export([start_link/0]).
 -export([stop/0]).
--export([start_epc/2]).
+-export([start_epc/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -77,8 +77,8 @@ stop() ->
     end,
     ok.
 
-start_epc(WorkerMod, WorkerSup) ->
-    supervisor:start_child(?SERVER, [WorkerMod, WorkerSup]).
+start_epc(Name, WorkerMod, WorkerSup) ->
+    supervisor:start_child(?SERVER, [Name, WorkerMod, WorkerSup]).
 
 %%%===================================================================
 %%% Supervisor callbacks

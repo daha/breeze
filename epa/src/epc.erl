@@ -46,7 +46,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2]).
+-export([start_link/3]).
 -export([stop/1]).
 
 -export([set_targets/2]).
@@ -62,7 +62,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {worker_mod, sup_pid, workers, targets}).
+-record(state, {worker_mod, sup_pid, workers = [], targets}).
 
 %%%===================================================================
 %%% API
@@ -75,8 +75,9 @@
 %% @spec start_link(WorkerMod, WorkerSup) -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(WorkerMod, WorkerSup) when is_atom(WorkerMod), is_pid(WorkerSup) ->
-    gen_server:start_link(?MODULE, [WorkerMod, WorkerSup], []).
+start_link(Name, WorkerMod, WorkerSup)
+  when is_atom(Name), is_atom(WorkerMod), is_pid(WorkerSup) ->
+    gen_server:start_link({local, Name}, ?MODULE, [WorkerMod, WorkerSup], []).
 
 stop(Server) ->
     gen_server:call(Server, stop).
@@ -136,7 +137,7 @@ init([WorkerMod, WorkerSup]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({start_workers, NumberOfWorkers}, _From,
-            State = #state{workers = undefined}) ->
+            State = #state{workers = []}) ->
     Options = i_make_options(State),
     Workers = i_start_workers(State#state.sup_pid, NumberOfWorkers, Options),
     {reply, ok, State#state{workers = Workers}};
@@ -162,6 +163,8 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_cast({msg, _DistType, _Msg}, State = #state{workers = []}) ->
+    {noreply, State};
 handle_cast({msg, all, Msg}, State = #state{worker_mod = epw}) ->
     i_multicast(State#state.workers, Msg),
     {noreply, State};

@@ -213,7 +213,7 @@ i_start_all_epc(Topology) ->
 i_start_all_epc([{Name, WorkerType, WorkerCallback, _C, _T} | Rest], Acc) ->
     WorkerMod = get_worker_mode_by_type(WorkerType),
     {ok, WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
-    {ok, Controller} = epc_sup:start_epc(WorkerMod, WorkerSup),
+    {ok, Controller} = epc_sup:start_epc(Name, WorkerMod, WorkerSup),
     i_start_all_epc(Rest, [{Name, Controller} | Acc]);
 i_start_all_epc([], Acc) ->
     Acc.

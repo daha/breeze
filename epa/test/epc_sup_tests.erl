@@ -56,12 +56,12 @@ start_stop_test() ->
     ok = epc_sup:stop().
 
 start_epc_epw_test() ->
-    test_start_epc(epw, epw_dummy).
+    test_start_epc(epw_worker, epw, epw_dummy).
 
 start_epc_eg_test() ->
-    test_start_epc(eg, eg_dummy).
+    test_start_epc(eg_worker, eg, eg_dummy).
 
-test_start_epc(WorkerMod, WorkerCallback) ->
+test_start_epc(Name, WorkerMod, WorkerCallback) ->
     {ok, Pid} = epc_sup:start_link(),
     Expected0 = [{specs, 1},
                  {active, 0},
@@ -69,12 +69,10 @@ test_start_epc(WorkerMod, WorkerCallback) ->
                  {workers, 0}],
     ?assertEqual(Expected0, supervisor:count_children(Pid)),
     {ok, WorkerSup} = pc_sup:start_link(WorkerMod, WorkerCallback),
-    {ok, _EpcPid} = epc_sup:start_epc(WorkerMod, WorkerSup),
+    {ok, _EpcPid} = epc_sup:start_epc(Name, WorkerMod, WorkerSup),
     Expected1 = [{specs, 1},
                  {active, 1},
                  {supervisors, 0},
                  {workers, 1}],
     ?assertEqual(Expected1, supervisor:count_children(Pid)),
     epc_sup:stop().
-
-% internal

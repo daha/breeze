@@ -44,10 +44,13 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-define(EPC_NAME, epc_name).
+
 tests_with_mock_test_() ->
     {foreach, fun setup/0, fun teardown/1,
       [{with, [T]} ||
        T <- [fun t_start_stop/1,
+             fun t_register_name/1,
              fun t_start_workers/1,
              fun t_should_not_allow_start_workers_once/1,
              fun t_restart_worker_when_it_crash/1,
@@ -58,11 +61,15 @@ tests_with_mock_test_() ->
              fun t_keyhashcast/1,
              fun t_keyhashcast_error/1,
              fun t_config_with_one_epc_target/1,
-             fun t_should_not_crash_on_random_data_to_gen_server_callbacks/1
+             fun t_should_not_crash_on_random_data_to_gen_server_callbacks/1,
+             fun t_should_do_nothing_on_cast_with_no_workers/1
             ]]}.
 
 t_start_stop([Pid | _]) ->
     ?assertNot(undefined == process_info(Pid)).
+
+t_register_name([Pid | _]) ->
+    ?assertEqual(Pid, whereis(?EPC_NAME)).
 
 t_start_workers([Pid, WorkerSup | _]) ->
     ?assertEqual(ok, epc:start_workers(Pid, 2)),
@@ -144,13 +151,14 @@ t_keyhashcast_error([Pid | _]) ->
                  epc:keyhashcast(Pid, Msg)).
 
 t_config_with_one_epc_target([Pid1, _WorkerSup1, WorkerMod, MockModule | _]) ->
-    {OtherEpc, _WorkerSup2} = start(WorkerMod, MockModule),
+    {OtherEpc, _WorkerSup2} = start(another_epc, WorkerMod, MockModule),
     Targets = [{OtherEpc, all}],
     ok = epc:set_targets(Pid1, Targets),
     ok = epc:start_workers(Pid1, 1),
     ?assert(meck:validate(WorkerMod)),
     ?assertEqual(1, meck_improvements:calls(
-                   WorkerMod, start_link, [MockModule, [], [{targets, Targets}]])).
+                   WorkerMod, start_link, [MockModule, [],
+                                           [{targets, Targets}]])).
 
 t_should_not_crash_on_random_data_to_gen_server_callbacks([Pid |_]) ->
     RandomData = {make_ref(), now(), foo, [self()]},
@@ -158,14 +166,20 @@ t_should_not_crash_on_random_data_to_gen_server_callbacks([Pid |_]) ->
     gen_server:cast(Pid, RandomData),
     gen_server:call(Pid, RandomData).
 
+t_should_do_nothing_on_cast_with_no_workers([Pid | _]) ->
+    Msg = {foo, 1},
+    ?assertEqual(ok, epc:multicast(Pid, Msg)),
+    ?assertEqual(ok, epc:randomcast(Pid, Msg)),
+    ?assertEqual(ok, epc:keyhashcast(Pid, Msg)),
+    ?assertEqual(ok, epc:sync(Pid)).
+
 should_seed_at_startup_test() ->
     meck:new(random, [passthrough, unstick]),
     S = setup(),
     ?assertEqual(1, meck_improvements:calls_wildcard(
-		      random, seed, ['_', '_', '_'])),
+              random, seed, ['_', '_', '_'])),
     teardown(S),
     meck:unload(random).
-
 
 % Assert functions
 assert_workers_are_called(WorkerMod, WorkerSup, Func) ->
@@ -206,20 +220,23 @@ setup() ->
     WorkerMod = epw,
     meck:new(epw, [passthrough]),
     MockModule = create_behaviour_stub(WorkerMod),
-    {Pid, WorkerSup} = start(WorkerMod, MockModule),
+    {Pid, WorkerSup} = start(?EPC_NAME, WorkerMod, MockModule),
     [Pid, WorkerSup, WorkerMod, MockModule].
 
 create_behaviour_stub(epw) ->
     MockModule = epw_mock,
     ok = meck:new(MockModule),
     meck:expect(MockModule, init, fun([]) -> {ok, []} end),
-    meck:expect(MockModule, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
+    meck:expect(MockModule, process,
+                fun(_Msg, _EmitFun, State) ->
+                        {ok, State}
+                end),
     meck:expect(MockModule, terminate, fun(_, State) -> State end),
     MockModule.
 
-start(WorkerMod, WorkerCallback) ->
+start(Name, WorkerMod, WorkerCallback) ->
     {ok, WorkerSup} = pc_sup:start_link(WorkerMod, WorkerCallback),
-    {ok, Pid} = epc:start_link(WorkerMod, WorkerSup),
+    {ok, Pid} = epc:start_link(Name, WorkerMod, WorkerSup),
     {Pid, WorkerSup}.
 
 teardown([Pid, WorkerSup, WorkerMod, MockModule]) ->
