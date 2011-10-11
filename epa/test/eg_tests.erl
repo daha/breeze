@@ -95,7 +95,8 @@ verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
     EmitTriggerFun = fun(_Pid) -> noop end,
     EmitTriggerMock = make_emitting_generate_mock(Msg),
     pc_tests_common:verify_emitted_message_is_sent_to_all_targets(
-      ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey).
+      ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc,
+      DistributionKey).
 
 
 % Local tests

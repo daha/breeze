@@ -31,3 +31,4 @@
 * Add test for randomcast not handling no workers.
 * check message queue size, have a way to report it
 * restrict the producers if the consumers can't cope with the load
+* Add possibility to reset all the workers, to start fresh without restarting all

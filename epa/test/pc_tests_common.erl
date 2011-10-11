@@ -88,8 +88,10 @@ validate_module(TestMod) ->
     Mock = TestMod:create_mock(),
     Mod = mod(TestMod),
     NotValidModule = not_valid_module,
+    NotLoadedModule = not_loaded_module,
     meck:new(NotValidModule),
     ?assertNot(Mod:validate_module(NotValidModule)),
+    ?assertNot(Mod:validate_module(NotLoadedModule)),
     ?assert(Mod:validate_module(Mock)),
     delete_mock(Mock),
     delete_mock(NotValidModule).

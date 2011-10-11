@@ -153,7 +153,8 @@ should_check_topology_test() ->
     Error = {error, some_error},
     meck:expect(config_validator, check_config, 1, Error),
     Config = [{topology, [foo]}],
-    ?assertEqual(Error, config_validator:check_config(Config)),
+    ?assertEqual(Error, epa_master:start_link(Config)),
+    ?assert(meck:called(config_validator, check_config, [Config])),
     meck:unload(config_validator),
     ok.
 
