@@ -1,6 +1,8 @@
+NEW:
+* add kernel and stdlib in the app file
+* handle the simple_one_for_one workers (they do not die in sync with its sup)
+
 HIGH:
-* starts consumers first including workers then start producers and their
-  workers and then their targets
 * Route messages in epc to workers for
   * one worker per key, create workers dynamically when needed
 * Figure out a way to pass configuration to workers

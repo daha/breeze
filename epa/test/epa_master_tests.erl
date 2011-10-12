@@ -79,8 +79,34 @@ test_read_simple_config_and_start_epc(WorkerType, WorkerMod, WorkerCallback) ->
     ?assert(meck:called(pc_supersup, start_worker_sup,
                         [WorkerMod, WorkerCallback])),
     ?assert(meck:called(epc_sup, start_epc, [Name, WorkerMod, WorkerSup])),
-    ?assertNot(meck:called(epc, set_targets, [])),
+    ?assertNot(meck:called(epc, set_targets, [EpcPid, []])),
     ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers])),
+    teardown().
+
+consumers_should_be_started_before_producers_test() ->
+    {WorkerSup, [EpcPid1, EpcPid2, EpcPid3|_]} = mock(),
+    Config = [{topology, [{consumer1, consumer, epw_dummy, 3, []},
+			  {producer, producer, eg_dummy, 1,
+			   [{consumer1, all}, {consumer2, all}]},
+			  {consumer2, consumer, epw_dummy, 2,
+			   [{consumer1, all}]}
+			 ]}],
+    {ok, _Pid} = epa_master:start_link(Config),
+    EpcSupHistory = clean_meck_history(meck:history(epc_sup)),
+
+    ExpectedEpcSupHistory = [{epc_sup,start_epc,[consumer1,epw,WorkerSup]},
+			     {epc_sup,start_epc,[consumer2,epw,WorkerSup]},
+			     {epc_sup,start_epc,[producer,eg,WorkerSup]}],
+    ?assertEqual(ExpectedEpcSupHistory, EpcSupHistory),
+
+    EpcHistory = clean_meck_history(meck:history(epc)),
+    ExpectedEpcHistory = [{epc,set_targets,[EpcPid2,[{EpcPid1,all}]]},
+			  {epc,start_workers,[EpcPid1,3]},
+			  {epc,start_workers,[EpcPid2,2]},
+			  {epc,set_targets,
+			   [EpcPid3,[{EpcPid1,all},{EpcPid2,all}]]},
+			  {epc,start_workers,[EpcPid3,1]}],
+    ?assertEqual(ExpectedEpcHistory, EpcHistory),
     teardown().
 
 worker_mod(producer) ->
@@ -147,7 +173,6 @@ should_not_crash_on_random_data_to_gen_server_callbacks_test() ->
     gen_server:call(Pid, RandomData),
     epa_master:stop().
 
-
 should_check_topology_test() ->
     meck:new(config_validator),
     Error = {error, some_error},
@@ -190,3 +215,6 @@ unload_mocks() ->
 
 create_pid() ->
      spawn(fun() -> timer:sleep(infinity) end).
+
+clean_meck_history(MeckHistory) ->
+    lists:map(fun(Call) -> element(2, Call) end, MeckHistory).

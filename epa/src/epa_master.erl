@@ -201,29 +201,48 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 i_start_topology(Topology) ->
     {ok, ControllerList} = i_start_all_epc(Topology),
-    i_connect_epcs(Topology, ControllerList),
-    i_start_workers(Topology, ControllerList),
+    i_connect_epcs_by_type(consumer, Topology, ControllerList),
+    i_start_workers_by_type(consumer, Topology, ControllerList),
+
+    i_connect_epcs_by_type(producer, Topology, ControllerList),
+    i_start_workers_by_type(producer, Topology, ControllerList),
     ControllerList.
 
 % i_start_all_epc/1
 i_start_all_epc(Topology) ->
-    ControllerList = i_start_all_epc(Topology, _ControllerList = []),
-    {ok, ControllerList}.
+    {ok, Consumers} = i_start_all_epc_by_type(consumer, Topology),
+    {ok, Producer} = i_start_all_epc_by_type(producer, Topology),
+    {ok, Consumers ++ Producer}.
 
-i_start_all_epc([{Name, WorkerType, WorkerCallback, _C, _T} | Rest], Acc) ->
+% i_start_all_consumer_epc/1
+i_start_all_epc_by_type(WorkerType, Topology) ->
+    i_start_all_epc_by_type(WorkerType, Topology, _ControllerList = []).
+
+i_start_all_epc_by_type(WorkerType,
+			[{Name, WorkerType, WorkerCallback, _C, _T} | Rest],
+			Acc) ->
+    {ok, Controller} = i_start_epc(Name, WorkerType, WorkerCallback),
+    i_start_all_epc_by_type(WorkerType, Rest, [{Name, Controller} | Acc]);
+i_start_all_epc_by_type(WorkerType, [_| Rest], Acc) ->
+    i_start_all_epc_by_type(WorkerType, Rest, Acc);
+i_start_all_epc_by_type(_WorkerType, [], Acc) ->
+    {ok , lists:reverse(Acc)}.
+
+i_start_epc(Name, WorkerType, WorkerCallback) ->
     WorkerMod = get_worker_mode_by_type(WorkerType),
     {ok, WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
-    {ok, Controller} = epc_sup:start_epc(Name, WorkerMod, WorkerSup),
-    i_start_all_epc(Rest, [{Name, Controller} | Acc]);
-i_start_all_epc([], Acc) ->
-    Acc.
+    epc_sup:start_epc(Name, WorkerMod, WorkerSup).
 
-% i_connect_epcs/2
-i_connect_epcs([{Name, _WType, _Cb, _C, Targets} | Rest], ControllerList) ->
+% i_connect_epcs_by_type/3
+i_connect_epcs_by_type(WorkerType,
+		       [{Name, WorkerType, _Cb, _C, Targets} | Rest],
+		       ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     i_connect_epcs_to_targets(Pid, Targets, ControllerList),
-    i_connect_epcs(Rest, ControllerList);
-i_connect_epcs([], _ControllerList) ->
+    i_connect_epcs_by_type(WorkerType, Rest, ControllerList);
+i_connect_epcs_by_type(WorkerType, [_ | Rest], ControllerList) ->
+    i_connect_epcs_by_type(WorkerType, Rest, ControllerList);
+i_connect_epcs_by_type(_WorkerType, [], _ControllerList) ->
     ok.
 
 i_connect_epcs_to_targets(_Pid, _NamedTargets = [], _ControllerList) ->
@@ -236,13 +255,17 @@ i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
                    end, NamedTargets),
     epc:set_targets(Pid, Targets).
 
-% i_start_workers/1
-i_start_workers([{Name, _WorkerType, _Cb, NumberOfWorkers, _Targets} | Rest],
-		ControllerList) ->
+% i_start_workers_by_type/3
+i_start_workers_by_type(WorkerType,
+			[{Name, WorkerType, _Cb, NumberOfWorkers, _Targets} |
+			 Rest],
+			ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     epc:start_workers(Pid, NumberOfWorkers),
-    i_start_workers(Rest, ControllerList);
-i_start_workers([], _ControllerList) ->
+    i_start_workers_by_type(WorkerType, Rest, ControllerList);
+i_start_workers_by_type(WorkerType, [_ | Rest], ControllerList) ->
+    i_start_workers_by_type(WorkerType, Rest, ControllerList);
+i_start_workers_by_type(_WorkerType, [], _ControllerList) ->
     ok.
 
 % i_get_controller/2
