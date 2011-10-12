@@ -119,12 +119,11 @@ should_have_timeout_after_init_([_Pid, Target, Msg | _]) ->
 
 should_have_timeout_after_timeout_([Pid, Target, Msg | _]) ->
     eg:sync(Pid),
-    PreCount = meck_improvements:calls(epc, multicast, [Target, Msg]),
+    PreCount = meck:num_calls(epc, multicast, [Target, Msg]),
     timer:sleep(1), % enough time to make a number of calls
     % The counter must increase with more then one, since increase
     % with only one indicate no timeout after handling timeout.
-    ?assert((PreCount + 1) <
-                meck_improvements:calls(epc, multicast, [Target, Msg])).
+    ?assert((PreCount + 1) < meck:num_calls(epc, multicast, [Target, Msg])).
 
 should_have_timeout_after_sync_([Pid, Target, Msg | _]) ->
     eg:sync(Pid),
@@ -144,9 +143,9 @@ should_have_timeout_after_handle_info_([Pid, Target, Msg | _]) ->
 
 % Helper to the timeout tests
 verify_continuous_timeouts(Target, Msg) ->
-    PreCount = meck_improvements:calls(epc, multicast, [Target, Msg]),
+    PreCount = meck:num_calls(epc, multicast, [Target, Msg]),
     timer:sleep(1), % enough time to make a number of calls
-    ?assert(PreCount < meck_improvements:calls(epc, multicast, [Target, Msg])).
+    ?assert(PreCount < meck:num_calls(epc, multicast, [Target, Msg])).
 
 %% Internal functions
 make_emitting_generate_mock(Msg) ->

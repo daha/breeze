@@ -156,9 +156,8 @@ t_config_with_one_epc_target([Pid1, _WorkerSup1, WorkerMod, MockModule | _]) ->
     ok = epc:set_targets(Pid1, Targets),
     ok = epc:start_workers(Pid1, 1),
     ?assert(meck:validate(WorkerMod)),
-    ?assertEqual(1, meck_improvements:calls(
-                   WorkerMod, start_link, [MockModule, [],
-                                           [{targets, Targets}]])).
+    ?assertEqual(1, meck:num_calls(WorkerMod, start_link,
+				   [MockModule, [], [{targets, Targets}]])).
 
 t_should_not_crash_on_random_data_to_gen_server_callbacks([Pid |_]) ->
     RandomData = {make_ref(), now(), foo, [self()]},
@@ -176,8 +175,7 @@ t_should_do_nothing_on_cast_with_no_workers([Pid | _]) ->
 should_seed_at_startup_test() ->
     meck:new(random, [passthrough, unstick]),
     S = setup(),
-    ?assertEqual(1, meck_improvements:calls_wildcard(
-              random, seed, ['_', '_', '_'])),
+    ?assertEqual(1, meck:num_calls(random, seed, ['_', '_', '_'])),
     teardown(S),
     meck:unload(random).
 
@@ -203,14 +201,13 @@ keyhashcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
 assert_workers_process_function_is_called(Workers, ExpectedList, Msg) ->
     lists:foreach(
       fun({Worker, Expected}) ->
-              ?assertEqual(Expected, meck_improvements:calls(
-                             epw, process, [Worker, Msg]))
+              ?assertEqual(Expected, meck:num_calls(epw, process, [Worker, Msg]))
       end, lists:zip(Workers, ExpectedList)).
 
 assert_workers_random_and_process(Workers, ExpectedList, Msg) ->
     NumberOfWorkers = length(Workers),
     ExpectedRandomUniformCalls = lists:sum(ExpectedList),
-    ?assertEqual(ExpectedRandomUniformCalls, meck_improvements:calls(
+    ?assertEqual(ExpectedRandomUniformCalls, meck:num_calls(
                    random, uniform, [NumberOfWorkers])),
     assert_workers_process_function_is_called(Workers, ExpectedList, Msg).
 
@@ -255,7 +252,7 @@ get_workers(WorkerSup) ->
 
 % Put the worker that receive the first process call first in the list
 order_workers(Workers, Msg) ->
-    case meck_improvements:calls(epw, process, [hd(Workers), Msg]) of
+    case meck:num_calls(epw, process, [hd(Workers), Msg]) of
         1 ->
             Workers;
         _ -> % Reverse the order
