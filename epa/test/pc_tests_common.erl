@@ -105,9 +105,7 @@ mocked_tests(TestMod) ->
 common_mocked_tests() ->
     [fun should_call_init_/1,
      fun should_handle_sync_/1,
-     %%             fun should_call_process_/1,
-     fun should_not_crash_on_random_data_to_gen_server_callbacks_/1,
-     fun(_) -> ok end
+     fun should_not_crash_on_random_data_to_gen_server_callbacks_/1
     ].
 
 special_mocked_tests(epw_tests) ->
@@ -165,10 +163,10 @@ delete_mock(Mock) ->
 
 create_pid() ->
      spawn(fun() -> timer:sleep(infinity) end).
+
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
 setup(TestMod) ->
     Mod = mod(TestMod),
     Mock = TestMod:create_mock(),
@@ -182,4 +180,3 @@ teardown([Mod, Pid, Mock | _]) ->
 
 mod(TestMod) ->
     TestMod:tested_module().
-
