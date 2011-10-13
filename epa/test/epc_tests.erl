@@ -44,25 +44,27 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-compile(export_all).
+
 -define(EPC_NAME, epc_name).
 
 tests_with_mock_test_() ->
-    {foreach, fun setup/0, fun teardown/1,
+    {foreach, fun ?MODULE:setup/0, fun teardown/1,
       [{with, [T]} ||
-       T <- [fun t_start_stop/1,
-             fun t_register_name/1,
-             fun t_start_workers/1,
-             fun t_should_not_allow_start_workers_once/1,
-             fun t_restart_worker_when_it_crash/1,
-             fun t_restarted_worker_should_keep_its_place/1,
-             fun t_multicast/1,
-             fun t_sync/1,
-             fun t_randomcast/1,
-             fun t_keyhashcast/1,
-             fun t_keyhashcast_error/1,
-             fun t_config_with_one_epc_target/1,
-             fun t_should_not_crash_on_random_data_to_gen_server_callbacks/1,
-             fun t_should_do_nothing_on_cast_with_no_workers/1
+       T <- [fun ?MODULE:t_start_stop/1,
+             fun ?MODULE:t_register_name/1,
+             fun ?MODULE:t_start_workers/1,
+             fun ?MODULE:t_should_not_allow_start_workers_once/1,
+             fun ?MODULE:t_restart_worker_when_it_crash/1,
+             fun ?MODULE:t_restarted_worker_should_keep_its_place/1,
+             fun ?MODULE:t_multicast/1,
+             fun ?MODULE:t_sync/1,
+             fun ?MODULE:t_randomcast/1,
+             fun ?MODULE:t_keyhashcast/1,
+             fun ?MODULE:t_keyhashcast_error/1,
+             fun ?MODULE:t_config_with_one_epc_target/1,
+             fun ?MODULE:t_should_not_crash_on_random_data_to_gen_server_callbacks/1,
+             fun ?MODULE:t_should_do_nothing_on_cast_with_no_workers/1
             ]]}.
 
 t_start_stop([Pid | _]) ->

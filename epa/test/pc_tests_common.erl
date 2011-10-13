@@ -44,20 +44,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
-%% API
--export([test_behaviour_info/2]).
--export([test_start_stop/1]).
--export([setup/1]).
--export([should_return_the_state_in_stop/1]).
--export([should_call_terminate_on_stop/1]).
--export([validate_module/1]).
-
--export([mocked_tests/1]).
-
--export([verify_emitted_message_is_sent_to_all_targets/6]).
-
--export([delete_mock/1]).
--export([create_pid/0]).
+-compile(export_all).
 
 test_behaviour_info(TestMod, Expected) ->
     Mod = mod(TestMod),
@@ -103,15 +90,15 @@ mocked_tests(TestMod) ->
      ]}.
 
 common_mocked_tests() ->
-    [fun should_call_init_/1,
-     fun should_handle_sync_/1,
-     fun should_not_crash_on_random_data_to_gen_server_callbacks_/1
+    [fun ?MODULE:should_call_init_/1,
+     fun ?MODULE:should_handle_sync_/1,
+     fun ?MODULE:should_not_crash_on_random_data_to_gen_server_callbacks_/1
     ].
 
 special_mocked_tests(epw_tests) ->
-    [fun should_call_process_/1];
+    [fun ?MODULE:should_call_process_/1];
 special_mocked_tests(eg_tests) ->
-    [fun should_not_call_generate_without_targets_/1].
+    [fun ?MODULE:should_not_call_generate_without_targets_/1].
 
 should_call_init_([_Mod, _Pid, Mock, StateRef]) ->
     ?assert(meck:called(Mock, init, [StateRef])).

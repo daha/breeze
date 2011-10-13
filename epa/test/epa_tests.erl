@@ -44,6 +44,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+-compile(export_all).
+
 -define(APP, epa).
 
 unload() ->
@@ -53,8 +55,8 @@ stop(_) ->
 
 start_stop_test_() ->
     {foreach,
-     fun unload/0,
-     fun stop/1,
+     fun ?MODULE:unload/0,
+     fun ?MODULE:stop/1,
      [?_test(t_start_app()),
       ?_test(t_stop_app())]}.
 
@@ -66,10 +68,3 @@ t_stop_app() ->
     application:start(?APP),
     ok = application:stop(?APP),
     ?assert(undefined == whereis(epa_sup)).
-
-%% Internal functions
-%% set_config([{Key, Val} | Rest]) ->
-%%     application:set_env(?APP, Key, Val),
-%%     set_config(Rest);
-%% set_config([]) ->
-%%     ok.
