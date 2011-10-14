@@ -58,7 +58,7 @@
 
 -record(state, {
                 callback,
-                user_state,
+                callback_state,
                 targets,
                 timeout
                }).
@@ -71,11 +71,12 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(Callback, UserArgs, Args) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(Callback, CallbackArgs, Args) ->
+%%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Callback, UserArgs, Args) ->
-    gen_server:start_link(?MODULE, [Callback, UserArgs, Args], []).
+start_link(Callback, CallbackArgs, Args) ->
+    gen_server:start_link(?MODULE, [Callback, CallbackArgs, Args], []).
 
 stop(Server) ->
     gen_server:call(Server, stop).
@@ -113,15 +114,15 @@ sync(Pid) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Callback, UserArgs, Args]) ->
+init([Callback, CallbackArgs, Args]) ->
     Targets = proplists:get_value(targets, Args, []),
-    {ok, UserState} = Callback:init(UserArgs),
+    {ok, CallbackState} = Callback:init(CallbackArgs),
     Timeout = case Targets of
                   [] -> infinity;
                   _ -> 0
               end,
     State = #state{callback = Callback,
-                   user_state = UserState,
+                   callback_state = CallbackState,
                    targets = Targets,
                    timeout = Timeout},
     {ok, State, State#state.timeout}.
@@ -144,8 +145,8 @@ handle_call(sync, _From, State) ->
     {reply, ok, State, State#state.timeout};
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
-    UserState = Callback:terminate(normal, State#state.user_state),
-    {stop, normal, {ok, UserState}, State};
+    CallbackState = Callback:terminate(normal, State#state.callback_state),
+    {stop, normal, {ok, CallbackState}, State};
 handle_call(Request, _From, State) ->
     {reply, {error, {invalid_request, Request}}, State, State#state.timeout}.
 
@@ -174,9 +175,9 @@ handle_cast(_Msg, State) ->
 %%--------------------------------------------------------------------
 handle_info(timeout, State) ->
     Callback = State#state.callback,
-    {ok, UserState} = Callback:generate(i_make_emit_fun(State#state.targets),
-                                        State#state.user_state),
-    {noreply, State#state{user_state = UserState}, State#state.timeout};
+    {ok, CallbackState} = Callback:generate(i_make_emit_fun(State#state.targets),
+                                            State#state.callback_state),
+    {noreply, State#state{callback_state = CallbackState}, State#state.timeout};
 handle_info(_Info, State) ->
     {noreply, State, State#state.timeout}.
 

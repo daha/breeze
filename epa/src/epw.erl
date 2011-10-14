@@ -59,7 +59,7 @@
 
 -record(state, {
                 callback,
-                user_args,
+                callback_state,
                 targets
                }).
 
@@ -77,11 +77,12 @@ behaviour_info(_Other) ->
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(Callback, UserArgs, Args) -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(Callback, CallbackArgs, Args)
+%%           -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Callback, UserArgs, Args) ->
-    gen_server:start_link(?MODULE, [Callback, UserArgs, Args], []).
+start_link(Callback, CallbackArgs, Args) ->
+    gen_server:start_link(?MODULE, [Callback, CallbackArgs, Args], []).
 
 stop(Pid) ->
     gen_server:call(Pid, stop).
@@ -115,10 +116,12 @@ sync(Pid) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([Callback, UserArgs0, Args]) ->
+init([Callback, CallbackArgs, Args]) ->
     Targets = proplists:get_value(targets, Args, []),
-    {ok, UserArgs1} = Callback:init(UserArgs0),
-    {ok, #state{callback=Callback, user_args = UserArgs1, targets = Targets}}.
+    {ok, CallbackState} = Callback:init(CallbackArgs),
+    {ok, #state{callback=Callback,
+                callback_state = CallbackState,
+                targets = Targets}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -138,8 +141,8 @@ handle_call(sync, _From, State) ->
     {reply, ok, State};
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
-    UserArgs = Callback:terminate(normal, State#state.user_args),
-    {stop, normal, {ok, UserArgs}, State};
+    CallbackState = Callback:terminate(normal, State#state.callback_state),
+    {stop, normal, {ok, CallbackState}, State};
 handle_call(_Request, _From, State) ->
     {reply, error, State}.
 
@@ -155,9 +158,10 @@ handle_call(_Request, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast({msg, Msg}, State) ->
     Callback = State#state.callback,
-    {ok, UserArgs} = Callback:process(Msg, i_make_emit_fun(State#state.targets),
-                                      State#state.user_args),
-    {noreply, State#state{user_args = UserArgs}};
+    {ok, CallbackState} = Callback:process(Msg,
+                                           i_make_emit_fun(State#state.targets),
+                                           State#state.callback_state),
+    {noreply, State#state{callback_state = CallbackState}};
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
