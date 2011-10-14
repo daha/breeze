@@ -80,7 +80,7 @@ test_read_simple_config_and_start_epc(WorkerType, WorkerMod, WorkerCallback) ->
                         [WorkerMod, WorkerCallback])),
     ?assert(meck:called(epc_sup, start_epc, [Name, WorkerMod, WorkerSup])),
     ?assertNot(meck:called(epc, set_targets, [EpcPid, []])),
-    ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers])),
+    ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers, []])),
     teardown().
 
 consumers_should_be_started_before_producers_test() ->
@@ -101,11 +101,11 @@ consumers_should_be_started_before_producers_test() ->
 
     EpcHistory = clean_meck_history(meck:history(epc)),
     ExpectedEpcHistory = [{epc,set_targets,[EpcPid2,[{EpcPid1,all}]]},
-			  {epc,start_workers,[EpcPid1,3]},
-			  {epc,start_workers,[EpcPid2,2]},
-			  {epc,set_targets,
+			  {epc, start_workers,[EpcPid1, 3, []]},
+			  {epc, start_workers,[EpcPid2, 2, []]},
+			  {epc, set_targets,
 			   [EpcPid3,[{EpcPid1,all},{EpcPid2,all}]]},
-			  {epc,start_workers,[EpcPid3,1]}],
+			  {epc, start_workers,[EpcPid3, 1, []]}],
     ?assertEqual(ExpectedEpcHistory, EpcHistory),
     teardown().
 
@@ -146,10 +146,32 @@ read_config_with_two_connected_epcs_test() ->
     ?assertEqual(1, meck:num_calls(epc_sup, start_epc,
 				   [receiver, WorkerMod, WorkerSup])),
     ?assert(meck:called(epc, set_targets, [EpcPid1, [{EpcPid2, all}]])),
-    ?assert(meck:called(epc, start_workers, [EpcPid1, SenderWorkers])),
-    ?assert(meck:called(epc, start_workers, [EpcPid2, ReceiverWorkers])),
+    ?assert(meck:called(epc, start_workers, [EpcPid1, SenderWorkers, []])),
+    ?assert(meck:called(epc, start_workers, [EpcPid2, ReceiverWorkers, []])),
     meck:unload(SenderCallback),
     meck:unload(ReceiverCallback),
+    teardown().
+
+read_config_with_two_epcs_with_worker_config_test() ->
+    {_WorkerSup, [EpcPid1, EpcPid2 | _]} = mock(),
+    SenderConfig = [sender_config],
+    ReceiverConfig = [receiver_config],
+    SenderWorkers = 1,
+    ReceiverWorkers = 2,
+    Config = [{topology, [{sender, producer, eg_dummy, SenderWorkers, []},
+                          {receiver, consumer, epw_dummy, ReceiverWorkers, []}
+                         ]},
+              {worker_config, [{sender, SenderConfig},
+                               {receiver, ReceiverConfig}]}
+             ],
+    {ok, _Pid} = epa_master:start_link(Config),
+    ?assertNot(meck:called(epc, start_workers, [EpcPid1, ReceiverWorkers, []])),
+    ?assertNot(meck:called(epc, start_workers, [EpcPid2, SenderWorkers, []])),
+
+    ?assert(meck:called(epc, start_workers,
+                        [EpcPid1, ReceiverWorkers, ReceiverConfig])),
+    ?assert(meck:called(epc, start_workers,
+                        [EpcPid2, SenderWorkers, SenderConfig])),
     teardown().
 
 get_epc_by_name_test() ->
@@ -194,7 +216,7 @@ mock() ->
     meck:expect(pc_supersup, start_worker_sup, 2, {ok, WorkerSup}),
     meck:sequence(epc_sup, start_epc, 3, StartEpcRetVal),
     meck:expect(epc, set_targets, 2, ok),
-    meck:expect(epc, start_workers, 2, ok),
+    meck:expect(epc, start_workers, 3, ok),
     {WorkerSup, EpcPids}.
 
 mock_epw_callback(CallbackModule) ->

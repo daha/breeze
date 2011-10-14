@@ -120,7 +120,8 @@ get_worker_mode_by_type(consumer) ->
 %%--------------------------------------------------------------------
 init([Config]) ->
     Topology = proplists:get_value(topology, Config, []),
-    ControllerList = i_start_topology(Topology),
+    WorkerConfigs = proplists:get_value(worker_config, Config, []),
+    ControllerList = i_start_topology(Topology, WorkerConfigs),
     {ok, #state{controller_list = ControllerList}}.
 
 %%--------------------------------------------------------------------
@@ -199,13 +200,13 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-i_start_topology(Topology) ->
+i_start_topology(Topology, WorkerConfigs) ->
     {ok, ControllerList} = i_start_all_epc(Topology),
     i_connect_epcs_by_type(consumer, Topology, ControllerList),
-    i_start_workers_by_type(consumer, Topology, ControllerList),
+    i_start_workers_by_type(consumer, Topology, ControllerList, WorkerConfigs),
 
     i_connect_epcs_by_type(producer, Topology, ControllerList),
-    i_start_workers_by_type(producer, Topology, ControllerList),
+    i_start_workers_by_type(producer, Topology, ControllerList, WorkerConfigs),
     ControllerList.
 
 % i_start_all_epc/1
@@ -258,14 +259,14 @@ i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
 % i_start_workers_by_type/3
 i_start_workers_by_type(WorkerType,
 			[{Name, WorkerType, _Cb, NumberOfWorkers, _Targets} |
-			 Rest],
-			ControllerList) ->
+			 Rest], ControllerList, WorkerConfigs) ->
     Pid = proplists:get_value(Name, ControllerList),
-    epc:start_workers(Pid, NumberOfWorkers),
-    i_start_workers_by_type(WorkerType, Rest, ControllerList);
-i_start_workers_by_type(WorkerType, [_ | Rest], ControllerList) ->
-    i_start_workers_by_type(WorkerType, Rest, ControllerList);
-i_start_workers_by_type(_WorkerType, [], _ControllerList) ->
+    WorkerConfig = proplists:get_value(Name, WorkerConfigs, []),
+    epc:start_workers(Pid, NumberOfWorkers, WorkerConfig),
+    i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
+i_start_workers_by_type(WorkerType, [_ | Rest], ControllerList, WorkerConfigs) ->
+    i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
+i_start_workers_by_type(_WorkerType, [], _ControllerList, _WorkerConfigs) ->
     ok.
 
 % i_get_controller/2
