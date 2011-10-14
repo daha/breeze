@@ -283,9 +283,8 @@ i_dynamic_cast(Msg, State0) ->
     State1.
 
 i_dynamically_start_worker(Key, State) ->
-    {WorkerPid,_, _} = Worker0 = i_start_worker(State),
-    Worker1 = setelement(3, Worker0, Key),
-    {WorkerPid, State#state{workers = [Worker1 | State#state.workers]}}.
+    {WorkerPid,_, _} = Worker = i_start_worker(State, Key),
+    {WorkerPid, State#state{workers = [Worker | State#state.workers]}}.
 
 i_make_options(#state{targets = undefined}) ->
     [];
@@ -295,6 +294,10 @@ i_make_options(#state{targets = Targets}) ->
 i_start_worker(State) ->
     [Worker] = i_start_workers(State, _NumberOfWorkers = 1),
     Worker.
+i_start_worker(State, Key) ->
+    [Worker] = i_start_workers(State, _NumberOfWorkers = 1),
+    setelement(3, Worker, Key).
+
 i_start_workers(State, NumberOfWorkers) ->
     i_start_workers(State, NumberOfWorkers, State#state.worker_config).
 i_start_workers(State, NumberOfWorkers, WorkerConfig) ->
@@ -314,9 +317,8 @@ i_monitor_workers(Workers) ->
 
 i_restart_worker(OldPid, State = #state{dynamic = true}) ->
     Key = i_find_worker_key_by_pid(State#state.workers, OldPid),
-    WorkerPidRefKey0 = i_start_worker(State),
-    WorkerPidRefKey1 = setelement(3, WorkerPidRefKey0, Key),
-    Workers = lists:keyreplace(OldPid, 1, State#state.workers, WorkerPidRefKey1),
+    Worker = i_start_worker(State, Key),
+    Workers = lists:keyreplace(OldPid, 1, State#state.workers, Worker),
     State#state{workers = Workers};
 i_restart_worker(OldPid, State) ->
     NewWorker = i_start_worker(State),
