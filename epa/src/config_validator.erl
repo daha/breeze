@@ -146,7 +146,8 @@ i_check_topology_duplicated_names([], _ValidNames) ->
 i_check_topology_target_references(Topology) ->
     i_check_topology_target_references(Topology, []).
 
-i_check_topology_target_references([{Name, _, _, _, Targets} | Rest], ConsumedNames) ->
+i_check_topology_target_references([{Name, _, _, _, Targets} | Rest],
+                                   ConsumedNames) ->
     ValidNames = ConsumedNames ++ i_extract_names(Rest),
     case i_check_target_names_is_valid(Targets, ValidNames) of
         ok ->
@@ -238,7 +239,7 @@ i_check_topology_worker_types([]) ->
     ok.
 
 % i_check_worker_callback_module/1
-i_check_worker_callback_module([{_, WorkerType, WorkerCallback, _, _} | Rest]) ->
+i_check_worker_callback_module([{_, WorkerType, WorkerCallback,_,_} | Rest]) ->
     WorkerMod = epa_master:get_worker_mode_by_type(WorkerType),
     case WorkerMod:validate_module(WorkerCallback) of
         true ->
@@ -287,7 +288,7 @@ i_check_worker_config_syntax(WorkerConfig) ->
 i_check_worker_configs_is_two_tuples_with_atom_and_term([{Name, _Term} | Rest])
   when is_atom(Name) ->
     i_check_worker_configs_is_two_tuples_with_atom_and_term(Rest);
-i_check_worker_configs_is_two_tuples_with_atom_and_term([WorkerConfig | _Rest]) ->
+i_check_worker_configs_is_two_tuples_with_atom_and_term([WorkerConfig | _]) ->
     {error, {invalid_worker_config, WorkerConfig}};
 i_check_worker_configs_is_two_tuples_with_atom_and_term([]) ->
     ok.
