@@ -196,6 +196,12 @@ dynamic_target_must_be_dynamic_test() ->
     ?assertEqual({error, {dynamic_target_must_have_dynamic_workers, name2}},
                  config_validator:check_config(NotDynamicWorker)).
 
+keyhash_targets_must_not_be_dynamic_test() ->
+    InvalidTopology = [{topology,
+                        [{name1, consumer, epw_dummy, 1, [{name2, keyhash}]},
+                         {name2, consumer, epw_dummy, dynamic, []}]}],
+    ?assertEqual({error, {keyhash_targets_must_not_be_dynamic, name2}},
+                 config_validator:check_config(InvalidTopology)).
 
 producers_is_not_allowed_as_consumers_test() ->
     ProducerAsConsumer = [{topology,

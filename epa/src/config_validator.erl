@@ -63,6 +63,7 @@ check_config(Config) ->
            fun i_check_topology_target_references/1,
            fun i_check_topology_target_reference_types/1,
            fun i_check_dynamic_target_must_have_dynamic_workers/1,
+           fun i_check_keyhash_target_must_not_be_dynamic/1,
            fun i_check_topology_worker_types/1,
            fun i_check_worker_callback_module/1,
            fun i_check_producer_as_consumer/1
@@ -197,11 +198,7 @@ i_check_target_types([]) ->
 
 % i_check_dynamic_target_must_have_dynamic_workers/1
 i_check_dynamic_target_must_have_dynamic_workers(Topology) ->
-    DynamicTargets = lists:foldl(
-                       fun ({Name, _, _, dynamic, _}, Acc) -> [Name|Acc];
-                           (_, Acc) -> Acc
-                       end,
-                       [], Topology),
+    DynamicTargets = i_find_dynamic_workers(Topology),
     i_check_dynamic_target_must_have_dynamic_workers(Topology, DynamicTargets).
 
 i_check_dynamic_target_must_have_dynamic_workers([{_,_,_,_,Targets} | Rest],
@@ -227,6 +224,41 @@ i_check_dynamic_targets_are_dynamic([_Target|Rest], DynamicTargets) ->
     i_check_dynamic_targets_are_dynamic(Rest, DynamicTargets);
 i_check_dynamic_targets_are_dynamic([], _DynamicTargets) ->
     ok.
+
+i_find_dynamic_workers(Topology) ->
+    lists:foldl(
+      fun ({Name, _, _, dynamic, _}, Acc) -> [Name|Acc];
+         (_, Acc) -> Acc
+      end,
+      [], Topology).
+
+% i_check_keyhash_target_must_not_be_dynamic/1
+i_check_keyhash_target_must_not_be_dynamic(Topology) ->
+    DynamicTargets = i_find_dynamic_workers(Topology),
+    i_check_keyhash_target_must_not_be_dynamic(Topology, DynamicTargets).
+
+i_check_keyhash_target_must_not_be_dynamic([{_,_,_,_,Targets}|Rest],
+                                           DynamicTargets) ->
+    case i_check_keyhash_targets_are_not_dynamic(Targets, DynamicTargets) of
+        ok ->
+            i_check_keyhash_target_must_not_be_dynamic(Rest, DynamicTargets);
+        Error ->
+            Error
+    end;
+i_check_keyhash_target_must_not_be_dynamic([], _DynamicTargets) ->
+    ok.
+
+i_check_keyhash_targets_are_not_dynamic([{Name, keyhash}|Rest], DynamicTargets) ->
+    case lists:member(Name, DynamicTargets) of
+        false ->
+            i_check_keyhash_targets_are_not_dynamic(Rest, DynamicTargets);
+        true ->
+            {error, {keyhash_targets_must_not_be_dynamic, Name}}
+    end;
+i_check_keyhash_targets_are_not_dynamic([_|Rest], DynamicTargets) ->
+    i_check_keyhash_targets_are_not_dynamic(Rest, DynamicTargets);
+i_check_keyhash_targets_are_not_dynamic([], _DynamicTargets) ->
+   ok.
 
 % i_check_topology_worker_types/1
 i_check_topology_worker_types([{_, producer, _, _, _} | Rest]) ->
