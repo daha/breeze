@@ -50,35 +50,35 @@
 
 tests_with_mock_test_() ->
     {foreach, fun ?MODULE:setup/0, fun teardown/1,
-      [{with, [T]} ||
-       T <- [fun ?MODULE:t_start_stop/1,
-             fun ?MODULE:t_register_name/1,
-             fun ?MODULE:t_start_workers/1,
-             fun ?MODULE:t_start_workers_with_same_config/1,
-             fun ?MODULE:t_should_not_allow_start_workers_once/1,
-             fun ?MODULE:t_restart_worker_when_it_crash/1,
-             fun ?MODULE:t_restarted_worker_should_keep_its_place/1,
-             fun ?MODULE:t_pass_worker_config_to_worker_on_restart/1,
-             fun ?MODULE:t_multicast/1,
-             fun ?MODULE:t_sync/1,
-             fun ?MODULE:t_randomcast/1,
-             fun ?MODULE:t_keyhashcast/1,
-             fun ?MODULE:t_keyhashcast_error/1,
-             fun ?MODULE:t_enable_dynamic_workers/1,
-             fun ?MODULE:t_cant_activate_dynamic_workers_with_workers_started/1,
-             fun ?MODULE:t_cant_start_workers_after_enabled_dynamic_workers/1,
-             fun ?MODULE:t_start_dynamic_worker_when_doing_first_keycast/1,
-             fun ?MODULE:t_start_dynamic_worker_should_set_targets/1,
-             fun ?MODULE:t_send_message_to_started_worker_when_doing_first_keycast/1,
-             fun ?MODULE:t_same_key_as_already_started_should_not_start_new_worker/1,
-             fun ?MODULE:t_remember_the_old_dynamic_workers_when_starting_new_ones/1,
-             fun ?MODULE:t_dynamic_cast_messages_must_be_a_tuple_with_a_key/1,
-             fun ?MODULE:t_dynamic_should_not_only_handle_dynamic_cast/1,
-             fun ?MODULE:t_non_dynamic_should_not_handle_unique/1,
-             fun ?MODULE:t_config_with_one_epc_target/1,
-             fun ?MODULE:t_should_not_crash_on_random_data/1,
-             fun ?MODULE:t_should_do_nothing_on_cast_with_no_workers/1
-            ]]}.
+     [{with, [T]} ||
+      T <- [fun ?MODULE:t_start_stop/1,
+            fun ?MODULE:t_register_name/1,
+            fun ?MODULE:t_start_workers/1,
+            fun ?MODULE:t_start_workers_with_same_config/1,
+            fun ?MODULE:t_should_not_allow_start_workers_once/1,
+            fun ?MODULE:t_restart_worker_when_it_crash/1,
+            fun ?MODULE:t_restarted_worker_should_keep_its_place/1,
+            fun ?MODULE:t_pass_worker_config_to_worker_on_restart/1,
+            fun ?MODULE:t_multicast/1,
+            fun ?MODULE:t_sync/1,
+            fun ?MODULE:t_random_cast/1,
+            fun ?MODULE:t_keyhash_cast/1,
+            fun ?MODULE:t_keyhash_cast_error/1,
+            fun ?MODULE:t_enable_dynamic_workers/1,
+            fun ?MODULE:t_cant_activate_dynamic_workers_with_workers_started/1,
+            fun ?MODULE:t_cant_start_workers_after_enabled_dynamic_workers/1,
+            fun ?MODULE:t_start_dynamic_worker_when_doing_first_keycast/1,
+            fun ?MODULE:t_start_dynamic_worker_should_set_targets/1,
+            fun ?MODULE:t_send_message_to_started_worker_when_doing_first_keycast/1,
+            fun ?MODULE:t_same_key_as_already_started_should_not_start_new_worker/1,
+            fun ?MODULE:t_remember_the_old_dynamic_workers_when_starting_new_ones/1,
+            fun ?MODULE:t_dynamic_cast_messages_must_be_a_tuple_with_a_key/1,
+            fun ?MODULE:t_dynamic_should_not_only_handle_dynamic_cast/1,
+            fun ?MODULE:t_non_dynamic_should_not_handle_unique/1,
+            fun ?MODULE:t_config_with_one_epc_target/1,
+            fun ?MODULE:t_should_not_crash_on_random_data/1,
+            fun ?MODULE:t_should_do_nothing_on_cast_with_no_workers/1
+           ]]}.
 
 t_start_stop([Pid | _]) ->
     ?assertNot(undefined == process_info(Pid)).
@@ -123,7 +123,7 @@ t_restarted_worker_should_keep_its_place([Pid, WorkerSup | _]) ->
     Workers = get_workers(WorkerSup),
     Msg1 = {foo, 1},
     Msg2 = {bar, 2},
-    ok = epc:keyhashcast(Pid, Msg1),
+    ok = epc:keyhash_cast(Pid, Msg1),
     ok = epc:sync(Pid),
     [FirstWorker | _ ] = OrderedWorkers = order_workers(Workers, Msg1),
     assert_workers_process_function_is_called(OrderedWorkers, [1, 0], Msg1),
@@ -131,8 +131,8 @@ t_restarted_worker_should_keep_its_place([Pid, WorkerSup | _]) ->
     Workers2 = get_workers(WorkerSup),
     [NewWorker] = Workers2 -- Workers,
     OrderedWorkers2 = replace(OrderedWorkers, FirstWorker, NewWorker),
-    keyhashcast_and_assert(Pid, Msg1, OrderedWorkers2, [1, 0]),
-    keyhashcast_and_assert(Pid, Msg2, OrderedWorkers2, [0, 1]),
+    keyhash_cast_and_assert(Pid, Msg1, OrderedWorkers2, [1, 0]),
+    keyhash_cast_and_assert(Pid, Msg2, OrderedWorkers2, [0, 1]),
     ok.
 
 t_multicast([Pid, WorkerSup, WorkerMod| _]) ->
@@ -149,45 +149,45 @@ t_sync([Pid, WorkerSup, WorkerMod | _]) ->
     assert_workers_are_called(WorkerMod, WorkerSup, sync),
     ok.
 
-t_randomcast([Pid, WorkerSup | _]) ->
+t_random_cast([Pid, WorkerSup | _]) ->
     meck:new(random, [passthrough, unstick]),
     ok = epc:start_workers(Pid, 2),
     meck:sequence(random, uniform, 1, [1, 1, 2]),
     Workers = get_workers(WorkerSup),
-    ok = epc:randomcast(Pid, Msg = msg),
+    ok = epc:random_cast(Pid, Msg = msg),
     ok = epc:sync(Pid),
-
+    
     OrderedWorkers = order_workers(Workers, Msg),
     assert_workers_random_and_process(OrderedWorkers, [1, 0], Msg),
-    randomcast_and_assert(Pid, Msg, OrderedWorkers, [2, 0]),
-    randomcast_and_assert(Pid, Msg, OrderedWorkers, [2, 1]),
+    random_cast_and_assert(Pid, Msg, OrderedWorkers, [2, 0]),
+    random_cast_and_assert(Pid, Msg, OrderedWorkers, [2, 1]),
     meck:unload(random).
 
-t_keyhashcast([Pid, WorkerSup | _]) ->
+t_keyhash_cast([Pid, WorkerSup | _]) ->
     ok = epc:start_workers(Pid, 2),
     Workers = get_workers(WorkerSup),
     Msg1 = {foo, 1},
     Msg2 = {bar, 2},
-    ok = epc:keyhashcast(Pid, Msg1),
+    ok = epc:keyhash_cast(Pid, Msg1),
     ok = epc:sync(Pid),
     OrderedWorkers = order_workers(Workers, Msg1),
     assert_workers_process_function_is_called(OrderedWorkers, [1, 0], Msg1),
-
-    keyhashcast_and_assert(Pid, Msg1, OrderedWorkers, [2, 0]),
-    keyhashcast_and_assert(Pid, Msg2, OrderedWorkers, [0, 1]),
+    
+    keyhash_cast_and_assert(Pid, Msg1, OrderedWorkers, [2, 0]),
+    keyhash_cast_and_assert(Pid, Msg2, OrderedWorkers, [0, 1]),
     ok.
 
-t_keyhashcast_error([Pid | _]) ->
+t_keyhash_cast_error([Pid | _]) ->
     Msg1 = foo,
     Msg2 = {},
     ?assertEqual({error, {not_a_valid_message, Msg1}},
-                 epc:keyhashcast(Pid, Msg1)),
+                 epc:keyhash_cast(Pid, Msg1)),
     ?assertEqual({error, {not_a_valid_message, Msg2}},
-                 epc:keyhashcast(Pid, Msg2)).
+                 epc:keyhash_cast(Pid, Msg2)).
 
 t_enable_dynamic_workers([Pid, _WorkerSup | _]) ->
-     ?assertEqual(ok, epc:enable_dynamic_workers(Pid)),
-     ?assertEqual(ok, epc:enable_dynamic_workers(Pid)).
+    ?assertEqual(ok, epc:enable_dynamic_workers(Pid)),
+    ?assertEqual(ok, epc:enable_dynamic_workers(Pid)).
 
 t_cant_activate_dynamic_workers_with_workers_started([Pid | _]) ->
     ok = epc:start_workers(Pid, 1),
@@ -263,9 +263,9 @@ t_dynamic_should_not_only_handle_dynamic_cast([Pid, _WorkerSup, WorkerMod | _]) 
     ok = epc:enable_dynamic_workers(Pid),
     Msg = {key1, data1},
     epc:dynamic_cast(Pid, Msg), % Create a worker
-    epc:keyhashcast(Pid, Msg),
+    epc:keyhash_cast(Pid, Msg),
     epc:multicast(Pid, Msg),
-    epc:randomcast(Pid, Msg),
+    epc:random_cast(Pid, Msg),
     epc:sync(Pid),
     ?assertEqual(1, meck:num_calls(WorkerMod, process, '_')).
 
@@ -283,7 +283,7 @@ t_config_with_one_epc_target([Pid1, _WorkerSup1, WorkerMod, MockModule | _]) ->
     ok = epc:start_workers(Pid1, 1),
     ?assert(meck:validate(WorkerMod)),
     ?assertEqual(1, meck:num_calls(WorkerMod, start_link,
-				   [MockModule, [], [{targets, Targets}]])),
+                                   [MockModule, [], [{targets, Targets}]])),
     epc:stop(OtherEpc).
 
 t_should_not_crash_on_random_data([Pid |_]) ->
@@ -296,8 +296,8 @@ t_should_not_crash_on_random_data([Pid |_]) ->
 t_should_do_nothing_on_cast_with_no_workers([Pid | _]) ->
     Msg = {foo, 1},
     ?assertEqual(ok, epc:multicast(Pid, Msg)),
-    ?assertEqual(ok, epc:randomcast(Pid, Msg)),
-    ?assertEqual(ok, epc:keyhashcast(Pid, Msg)),
+    ?assertEqual(ok, epc:random_cast(Pid, Msg)),
+    ?assertEqual(ok, epc:keyhash_cast(Pid, Msg)),
     ?assertEqual(ok, epc:sync(Pid)).
 
 should_seed_at_startup_test() ->
@@ -312,16 +312,16 @@ assert_workers_are_called(WorkerMod, WorkerSup, Func) ->
     assert_workers_are_called(WorkerMod, WorkerSup, Func, []).
 assert_workers_are_called(WorkerMod, WorkerSup, Func, ExtraArgs) ->
     lists:foreach(fun(Pid) ->
-			  ?assert(meck:called(WorkerMod, Func, [Pid] ++ ExtraArgs))
-		  end, get_workers(WorkerSup)).
+                          ?assert(meck:called(WorkerMod, Func, [Pid] ++ ExtraArgs))
+                  end, get_workers(WorkerSup)).
 
-randomcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
-    ok = epc:randomcast(Pid, Msg),
+random_cast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
+    ok = epc:random_cast(Pid, Msg),
     ok = epc:sync(Pid),
     assert_workers_random_and_process(OrderedWorkers, ExpectedList, Msg).
 
-keyhashcast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
-    ok = epc:keyhashcast(Pid, Msg),
+keyhash_cast_and_assert(Pid, Msg, OrderedWorkers, ExpectedList) ->
+    ok = epc:keyhash_cast(Pid, Msg),
     ok = epc:sync(Pid),
     assert_workers_process_function_is_called(OrderedWorkers, ExpectedList, Msg).
 

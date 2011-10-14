@@ -57,8 +57,8 @@
 -export([sync/1]).
 
 -export([multicast/2]).
--export([randomcast/2]).
--export([keyhashcast/2]).
+-export([random_cast/2]).
+-export([keyhash_cast/2]).
 -export([dynamic_cast/2]).
 
 %% gen_server callbacks
@@ -107,12 +107,12 @@ enable_dynamic_workers(Server) ->
 multicast(Server,  Msg) ->
     gen_server:cast(Server, {msg, all, Msg}).
 
-randomcast(Server, Msg) ->
+random_cast(Server, Msg) ->
     gen_server:cast(Server, {msg, random, Msg}).
 
-keyhashcast(Server, Msg) when is_tuple(Msg) andalso size(Msg) > 0 ->
+keyhash_cast(Server, Msg) when is_tuple(Msg) andalso size(Msg) > 0 ->
     gen_server:cast(Server, {msg, keyhash, Msg});
-keyhashcast(_Server, Msg) ->
+keyhash_cast(_Server, Msg) ->
     {error, {not_a_valid_message, Msg}}.
 
 dynamic_cast(Server, Msg) when is_tuple(Msg) andalso size(Msg) > 0 ->
@@ -208,10 +208,10 @@ handle_cast({msg, all, Msg}, State = #state{worker_mod = epw}) ->
     i_multicast(State#state.workers, Msg),
     {noreply, State};
 handle_cast({msg, random, Msg}, State = #state{worker_mod = epw}) ->
-    i_randomcast(State#state.workers, Msg),
+    i_random_cast(State#state.workers, Msg),
     {noreply, State};
 handle_cast({msg, keyhash, Msg}, State = #state{worker_mod = epw}) ->
-    i_keyhashcast(State#state.workers, Msg),
+    i_keyhash_cast(State#state.workers, Msg),
     {noreply, State};
 handle_cast(_Msg, State) ->
     {noreply, State}.
@@ -266,12 +266,12 @@ i_sync(WorkerMod, Workers) ->
 i_multicast(Workers, Msg) ->
     lists:foreach(fun({Pid, _}) -> epw:process(Pid, Msg) end, Workers).
 
-i_randomcast(Workers, Msg) ->
+i_random_cast(Workers, Msg) ->
     RandInt = random:uniform(length(Workers)),
     {WorkerPid, _} = lists:nth(RandInt, Workers),
     epw:process(WorkerPid, Msg).
 
-i_keyhashcast(Workers, Msg) ->
+i_keyhash_cast(Workers, Msg) ->
     Key = element(1, Msg),
     Hash = erlang:phash2(Key, length(Workers)) + 1,
     {WorkerPid, _} = lists:nth(Hash, Workers),

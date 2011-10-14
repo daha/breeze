@@ -211,8 +211,8 @@ i_make_emit_fun(Targets) ->
                   fun({Pid, all}) ->
                           epc:multicast(Pid, Msg);
                      ({Pid, random}) ->
-                          epc:randomcast(Pid, Msg);
+                          epc:random_cast(Pid, Msg);
                      ({Pid, keyhash}) ->
-                          epc:keyhashcast(Pid, Msg)
+                          epc:keyhash_cast(Pid, Msg)
                   end, Targets)
     end.

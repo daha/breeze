@@ -86,10 +86,10 @@ mocked_tests_test_() ->
 
 verify_emitted_message_is_multicasted_to_all_targets_test() ->
     verify_emitted_message_is_sent_to_all_targets(multicast, all), ok.
-verify_emitted_message_is_randomcasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(randomcast, random), ok.
-verify_emitted_message_is_keyhashcasted_to_all_targets_test() ->
-    verify_emitted_message_is_sent_to_all_targets(keyhashcast, keyhash), ok.
+verify_emitted_message_is_random_casted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(random_cast, random), ok.
+verify_emitted_message_is_keyhash_casted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(keyhash_cast, keyhash), ok.
 
 verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
     Msg = {foo, bar},
