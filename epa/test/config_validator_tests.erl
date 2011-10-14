@@ -63,6 +63,9 @@ valid_topology_test() ->
     Topology7 = [{topology, [{name1, producer, eg_dummy, 12,
                               [{name2, random}]},
                              {name2, consumer, epw_dummy, 13, []}]}],
+    Topology8 = [{topology, [{name1, producer, eg_dummy, 14,
+                              [{name2, dynamic}]},
+                             {name2, consumer, epw_dummy, dynamic, []}]}],
     ?assertEqual(ok, config_validator:check_config(Topology1)),
     ?assertEqual(ok, config_validator:check_config(Topology2)),
     ?assertEqual(ok, config_validator:check_config(Topology3)),
@@ -70,6 +73,7 @@ valid_topology_test() ->
     ?assertEqual(ok, config_validator:check_config(Topology5)),
     ?assertEqual(ok, config_validator:check_config(Topology6)),
     ?assertEqual(ok, config_validator:check_config(Topology7)),
+    ?assertEqual(ok, config_validator:check_config(Topology8)),
     ok.
 
 invalid_topology_syntax_check_test() ->
@@ -143,24 +147,24 @@ invalid_topology_target_references_test() ->
 
 invalid_topology_target_ref_type_test() ->
     InvalidTargetRefType = [{topology, [{name1, consumer, bar, 1, []},
-                                         {name2, consumer, bar, 1,
-                                          [{name1, foo}]}]}],
+                                        {name2, consumer, bar, 1,
+                                         [{name1, foo}]}]}],
     ?assertEqual({error, {invalid_target_ref_type, foo}},
                  config_validator:check_config(InvalidTargetRefType)).
 
 valid_topology_target_ref_type_test() ->
     ValidTargetRefType1 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                      {name2, consumer, epw_dummy, 1,
-                                       [{name1, all}]}]}],
+                                       {name2, consumer, epw_dummy, 1,
+                                        [{name1, all}]}]}],
     ValidTargetRefType2 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                      {name2, consumer, epw_dummy, 1,
-                                       [{name1, random}]}]}],
+                                       {name2, consumer, epw_dummy, 1,
+                                        [{name1, random}]}]}],
     ValidTargetRefType3 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                      {name2, consumer, epw_dummy, 1,
-                                       [{name1, keyhash}]}]}],
+                                       {name2, consumer, epw_dummy, 1,
+                                        [{name1, keyhash}]}]}],
     ValidTargetRefType4 = [{topology, [{name1, producer, eg_dummy, 1,
                                         [{name2, keyhash}]},
-                                      {name2, consumer, epw_dummy, 1, []}]}],
+                                       {name2, consumer, epw_dummy, 1, []}]}],
     ?assertEqual(ok, config_validator:check_config(ValidTargetRefType1)),
     ?assertEqual(ok, config_validator:check_config(ValidTargetRefType2)),
     ?assertEqual(ok, config_validator:check_config(ValidTargetRefType3)),
@@ -185,6 +189,14 @@ invalid_topology_worker_callback_module_test() ->
     ?assertEqual({error, {invalid_worker_callback_module, invalid_callback}},
                  config_validator:check_config(InvalidWorkerCallbackModule)).
 
+dynamic_target_must_be_dynamic_test() ->
+    NotDynamicWorker = [{topology,
+                         [{name1, consumer, epw_dummy, 1, [{name2, dynamic}]},
+                          {name2, consumer, epw_dummy, 1, []}]}],
+    ?assertEqual({error, {dynamic_target_must_have_dynamic_workers, name2}},
+                 config_validator:check_config(NotDynamicWorker)).
+
+
 producers_is_not_allowed_as_consumers_test() ->
     ProducerAsConsumer = [{topology,
                            [{name1, consumer, epw_dummy, 1, [{name2, all}]},
@@ -204,9 +216,9 @@ worker_config_is_not_a_list_test() ->
                  config_validator:check_config(InvalidWorkerConfig)).
 
 invalid_worker_config_test() ->
-        InvalidWorkerConfig1 = [{worker_config, [{foo}]}],
-        InvalidWorkerConfig2 = [{worker_config, [{1, foo}]}],
-        InvalidWorkerConfig3 = [{worker_config, [{foo, bar, baz}]}],
+    InvalidWorkerConfig1 = [{worker_config, [{foo}]}],
+    InvalidWorkerConfig2 = [{worker_config, [{1, foo}]}],
+    InvalidWorkerConfig3 = [{worker_config, [{foo, bar, baz}]}],
     ?assertEqual({error, {invalid_worker_config, {foo}}},
                  config_validator:check_config(InvalidWorkerConfig1)),
     ?assertEqual({error, {invalid_worker_config, {1, foo}}},

@@ -62,6 +62,7 @@ check_config(Config) ->
            fun i_check_topology_duplicated_names/1,
            fun i_check_topology_target_references/1,
            fun i_check_topology_target_reference_types/1,
+           fun i_check_dynamic_target_must_have_dynamic_workers/1,
            fun i_check_topology_worker_types/1,
            fun i_check_worker_callback_module/1,
            fun i_check_producer_as_consumer/1
@@ -111,10 +112,10 @@ i_check_topology_syntax([]) ->
     ok.
 
 i_check_worker_tuple({Name, Type, WorkerCallback, NumWorkers, Targets}) when
-      is_atom(Name) andalso
+  is_atom(Name) andalso
       is_atom(Type) andalso
       is_atom(WorkerCallback) andalso
-      is_integer(NumWorkers) andalso
+      (is_integer(NumWorkers) orelse NumWorkers =:= dynamic) andalso
       is_list(Targets) ->
     i_check_targets(Targets);
 i_check_worker_tuple(Tuple) ->
@@ -129,7 +130,7 @@ i_check_targets([]) ->
 
 % i_check_topology_duplicated_names/1
 i_check_topology_duplicated_names(Topology) ->
-   i_check_topology_duplicated_names(Topology, _ValidNames = []).
+    i_check_topology_duplicated_names(Topology, _ValidNames = []).
 
 i_check_topology_duplicated_names([{Name, _, _, _, _} | Rest], ValidNames) ->
     case lists:member(Name, ValidNames) of
@@ -186,9 +187,44 @@ i_check_target_types([{_, random} | Rest]) ->
     i_check_target_types(Rest);
 i_check_target_types([{_, keyhash} | Rest]) ->
     i_check_target_types(Rest);
+i_check_target_types([{_, dynamic} | Rest]) ->
+    i_check_target_types(Rest);
 i_check_target_types([{_, InvalidType} | _Rest]) ->
     {error, {invalid_target_ref_type, InvalidType}};
 i_check_target_types([]) ->
+    ok.
+
+% i_check_dynamic_target_must_have_dynamic_workers/1
+i_check_dynamic_target_must_have_dynamic_workers(Topology) ->
+    DynamicTargets = lists:foldl(
+                       fun ({Name, _, _, dynamic, _}, Acc) -> [Name|Acc];
+                           (_, Acc) -> Acc
+                       end,
+                       [], Topology),
+    i_check_dynamic_target_must_have_dynamic_workers(Topology, DynamicTargets).
+
+i_check_dynamic_target_must_have_dynamic_workers([{_,_,_,_,Targets} | Rest],
+                                                 DynamicTargets) ->
+    case i_check_dynamic_targets_are_dynamic(Targets, DynamicTargets) of
+        ok ->
+            i_check_dynamic_target_must_have_dynamic_workers(
+              Rest, DynamicTargets);
+        Error ->
+            Error
+    end;
+i_check_dynamic_target_must_have_dynamic_workers([], _DynamicTargets) ->
+    ok.
+
+i_check_dynamic_targets_are_dynamic([{Name, dynamic} | Rest], DynamicTargets) ->
+    case lists:member(Name, DynamicTargets) of
+        true ->
+            i_check_dynamic_targets_are_dynamic(Rest, DynamicTargets);
+        false ->
+            {error, {dynamic_target_must_have_dynamic_workers, Name}}
+    end;
+i_check_dynamic_targets_are_dynamic([_Target|Rest], DynamicTargets) ->
+    i_check_dynamic_targets_are_dynamic(Rest, DynamicTargets);
+i_check_dynamic_targets_are_dynamic([], _DynamicTargets) ->
     ok.
 
 % i_check_topology_worker_types/1
@@ -232,12 +268,12 @@ i_check_producer_as_consumer([], _ProducerNames) ->
     ok.
 
 i_check_producer_as_consumer_target([{Name, _} | Rest], ProducerNames) ->
-        case lists:member(Name, ProducerNames) of
-            false ->
-               i_check_producer_as_consumer_target(Rest, ProducerNames);
-            _ ->
-                {error, {producer_as_consumer, Name}}
-        end;
+    case lists:member(Name, ProducerNames) of
+        false ->
+            i_check_producer_as_consumer_target(Rest, ProducerNames);
+        _ ->
+            {error, {producer_as_consumer, Name}}
+    end;
 i_check_producer_as_consumer_target([], _ProducerNames) ->
     ok.
 
