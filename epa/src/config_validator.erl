@@ -88,7 +88,6 @@ i_check_all(Config, [{Key, CheckFuns} | Rest]) ->
 i_check_all(_Config, []) ->
     ok.
 
-
 i_check_all_funs(KeyConfig, [CheckFun | CheckFuns]) ->
     case CheckFun(KeyConfig) of
         ok ->
@@ -145,32 +144,12 @@ i_check_topology_duplicated_names([], _ValidNames) ->
 
 % i_check_topology_target_references/1
 i_check_topology_target_references(Topology) ->
-    i_check_topology_target_references(Topology, []).
+    ValidNames = i_get_all_names(Topology),
+    ErrorType = invalid_target_ref,
+    i_check_all_targets_are_in_target_set(Topology, ValidNames, '_', ErrorType).
 
-i_check_topology_target_references([{Name, _, _, _, Targets} | Rest],
-                                   ConsumedNames) ->
-    ValidNames = ConsumedNames ++ i_extract_names(Rest),
-    case i_check_target_names_is_valid(Targets, ValidNames) of
-        ok ->
-            i_check_topology_target_references(Rest, [Name | ConsumedNames]);
-        Error ->
-            Error
-    end;
-i_check_topology_target_references([], _) ->
-    ok.
-
-i_check_target_names_is_valid([], _ValidNames) ->
-    ok;
-i_check_target_names_is_valid([{TargetName, _} | Rest], ValidNames) ->
-    case lists:member(TargetName, ValidNames) of
-        true ->
-            i_check_target_names_is_valid(Rest, ValidNames);
-        _ ->
-            {error, {invalid_target_ref, TargetName}}
-    end.
-
-i_extract_names(List) ->
-    lists:map(fun(Worker) -> element(1, Worker) end, List).
+i_get_all_names(Topology) ->
+    lists:map(fun({Name,_,_,_,_}) -> Name end, Topology).
 
 % i_check_topology_target_reference_types/1
 i_check_topology_target_reference_types([{_, _, _, _, Targets} | Rest]) ->
@@ -277,10 +256,10 @@ i_check_worker_configs_is_two_tuples_with_atom_and_term([]) ->
     ok.
 
 %% i_check_all_targets_are_in_target_set/4
-i_check_all_targets_are_in_target_set([{_,_,_,_,Targets}|Rest], TargetsSet,
+i_check_all_targets_are_in_target_set([{Name,_,_,_,Targets}|Rest], TargetsSet,
                                       TargetKey, ErrorType) ->
     case i_check_target_name_is_member_list(
-           Targets, TargetKey, TargetsSet, ErrorType) of
+           Targets, TargetKey, TargetsSet -- [Name], ErrorType) of
         ok ->
             i_check_all_targets_are_in_target_set(
               Rest, TargetsSet, TargetKey, ErrorType);
