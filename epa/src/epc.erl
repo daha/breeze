@@ -173,10 +173,6 @@ handle_call(dynamic_workers, _From, State) ->
     {reply, {error, workers_already_started}, State};
 handle_call({set_targets, Targets}, _From, State) ->
     {reply, ok, State#state{targets = Targets}};
-handle_call(sync, _From, State = #state{dynamic = true}) ->
-    i_sync(State#state.worker_mod,
-           lists:map(fun({_Key, Worker}) -> Worker end, State#state.workers)),
-    {reply, ok, State};
 handle_call(sync, _From, State) ->
     i_sync(State#state.worker_mod, State#state.workers),
     {reply, ok, State};
@@ -259,37 +255,38 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 i_sync(WorkerMod, Workers) ->
-    lists:foreach(fun({Pid, _}) -> ok = WorkerMod:sync(Pid) end, Workers).
+    lists:foreach(fun({Pid, _, _}) -> ok = WorkerMod:sync(Pid) end, Workers).
 
 i_multicast(Workers, Msg) ->
-    lists:foreach(fun({Pid, _}) -> epw:process(Pid, Msg) end, Workers).
+    lists:foreach(fun({Pid, _, _}) -> epw:process(Pid, Msg) end, Workers).
 
 i_random_cast(Workers, Msg) ->
     RandInt = random:uniform(length(Workers)),
-    {WorkerPid, _} = lists:nth(RandInt, Workers),
+    {WorkerPid, _, _} = lists:nth(RandInt, Workers),
     epw:process(WorkerPid, Msg).
 
 i_keyhash_cast(Workers, Msg) ->
     Key = element(1, Msg),
     Hash = erlang:phash2(Key, length(Workers)) + 1,
-    {WorkerPid, _} = lists:nth(Hash, Workers),
+    {WorkerPid, _, _} = lists:nth(Hash, Workers),
     epw:process(WorkerPid, Msg).
 
 i_dynamic_cast(Msg, State0) ->
     Key = element(1, Msg),
     {WorkerPid, State1} =
-        case proplists:lookup(Key, State0#state.workers) of
-            {Key, {WorkerPid0, _}} ->
+        case lists:keyfind(Key, 3, State0#state.workers) of
+            {WorkerPid0, _, Key} ->
                 {WorkerPid0, State0};
-            none ->
+            false ->
                 i_dynamically_start_worker(Key, State0)
         end,
     epw:process(WorkerPid, Msg),
     State1.
 
 i_dynamically_start_worker(Key, State) ->
-    {WorkerPid,_} = Worker = i_start_worker(State),
-    {WorkerPid, State#state{workers = [{Key, Worker}| State#state.workers]}}.
+    {WorkerPid,_, _} = Worker0 = i_start_worker(State),
+    Worker1 = setelement(3, Worker0, Key),
+    {WorkerPid, State#state{workers = [Worker1 | State#state.workers]}}.
 
 i_make_options(#state{targets = undefined}) ->
     [];
@@ -311,20 +308,22 @@ i_start_workers(SupPid, NumberOfWorkers, WorkerConfig, Options) ->
     i_monitor_workers(Workers).
 
 i_monitor_workers(Workers) ->
-    lists:map(fun(Pid) -> Ref = monitor(process, Pid), {Pid, Ref} end, Workers).
+    lists:map(fun(Pid) ->
+                      Ref = monitor(process, Pid),
+                      {Pid, Ref, undefined}
+              end, Workers).
 
 i_restart_worker(OldPid, State = #state{dynamic = true}) ->
     Key = i_find_worker_key_by_pid(State#state.workers, OldPid),
-    WorkerPidRef = i_start_worker(State),
-    NewWorker = {Key, WorkerPidRef},
-    Workers = lists:keyreplace(Key, 1, State#state.workers, NewWorker),
+    WorkerPidRefKey0 = i_start_worker(State),
+    WorkerPidRefKey1 = setelement(3, WorkerPidRefKey0, Key),
+    Workers = lists:keyreplace(OldPid, 1, State#state.workers, WorkerPidRefKey1),
     State#state{workers = Workers};
 i_restart_worker(OldPid, State) ->
     NewWorker = i_start_worker(State),
     Workers = lists:keyreplace(OldPid, 1, State#state.workers, NewWorker),
     State#state{workers = Workers}.
 
-i_find_worker_key_by_pid([{Key, {Pid, _}} | _Rest], Pid) ->
-    Key;
-i_find_worker_key_by_pid([_ | Rest], Pid) ->
-    i_find_worker_key_by_pid(Rest, Pid).
+i_find_worker_key_by_pid(Workers, Pid) ->
+    {Pid, _, Key} = lists:keyfind(Pid, 1, Workers),
+    Key.
