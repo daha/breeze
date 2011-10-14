@@ -257,6 +257,11 @@ i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
     epc:set_targets(Pid, Targets).
 
 % i_start_workers_by_type/3
+i_start_workers_by_type(WorkerType, [{Name, WorkerType, _Cb, dynamic, _T} |
+                                         Rest], ControllerList, WorkerConfigs) ->
+    Pid = proplists:get_value(Name, ControllerList),
+    epc:enable_dynamic_workers(Pid),
+    i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
 i_start_workers_by_type(WorkerType,
 			[{Name, WorkerType, _Cb, NumberOfWorkers, _Targets} |
 			 Rest], ControllerList, WorkerConfigs) ->

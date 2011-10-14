@@ -152,6 +152,32 @@ read_config_with_two_connected_epcs_test() ->
     meck:unload(ReceiverCallback),
     teardown().
 
+read_config_with_dynamic_worker_test() ->
+    {_WorkerSup, [EpcPid1, EpcPid2 | _]} = mock(),
+    SenderCallback = sender_callback,
+    ReceiverCallback = receiver_callback,
+    SenderWorkers = 2,
+    ReceiverWorkers = dynamic,
+    WorkerType = consumer,
+    TargetType = dynamic,
+    mock_epw_callback(SenderCallback),
+    mock_epw_callback(ReceiverCallback),
+    Config = [{topology, [{sender, WorkerType, SenderCallback, SenderWorkers,
+                           [{receiver, TargetType}]},
+                          {receiver, WorkerType, ReceiverCallback,
+                           ReceiverWorkers, []}
+                         ]
+              }],
+    {ok, _Pid} = epa_master:start_link(Config),
+
+    ?assert(meck:called(epc, set_targets, [EpcPid1, [{EpcPid2, TargetType}]])),
+    ?assert(meck:called(epc, start_workers, [EpcPid1, SenderWorkers, []])),
+    ?assertNot(meck:called(epc, start_workers, [EpcPid2, ReceiverWorkers, []])),
+    ?assert(meck:called(epc, enable_dynamic_workers, [EpcPid2])),
+    meck:unload(SenderCallback),
+    meck:unload(ReceiverCallback),
+    teardown().
+
 read_config_with_two_epcs_with_worker_config_test() ->
     {_WorkerSup, [EpcPid1, EpcPid2 | _]} = mock(),
     SenderConfig = [sender_config],
@@ -217,6 +243,7 @@ mock() ->
     meck:sequence(epc_sup, start_epc, 3, StartEpcRetVal),
     meck:expect(epc, set_targets, 2, ok),
     meck:expect(epc, start_workers, 3, ok),
+    meck:expect(epc, enable_dynamic_workers, 1, ok),
     {WorkerSup, EpcPids}.
 
 mock_epw_callback(CallbackModule) ->
