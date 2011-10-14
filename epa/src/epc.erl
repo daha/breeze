@@ -52,12 +52,14 @@
 -export([set_targets/2]).
 -export([start_workers/2]).
 -export([start_workers/3]).
+-export([enable_dynamic_workers/1]).
 
 -export([sync/1]).
 
 -export([multicast/2]).
 -export([randomcast/2]).
 -export([keyhashcast/2]).
+-export([dynamic_cast/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -68,7 +70,8 @@
                 sup_pid,
                 workers = [],
                 worker_config = [],
-                targets
+                targets,
+                dynamic = false
                }).
 
 %%%===================================================================
@@ -94,8 +97,12 @@ set_targets(Server, Targets) when is_list(Targets) ->
 
 start_workers(Server, NumberOfWorkers) ->
     start_workers(Server, NumberOfWorkers, _WorkerConfig = []).
-start_workers(Server, NumberOfWorkers, WorkerConfig) ->
+start_workers(Server, NumberOfWorkers, WorkerConfig)
+  when is_integer(NumberOfWorkers) ->
     gen_server:call(Server, {start_workers, NumberOfWorkers, WorkerConfig}).
+
+enable_dynamic_workers(Server) ->
+    gen_server:call(Server, dynamic_workers).
 
 multicast(Server,  Msg) ->
     gen_server:cast(Server, {msg, all, Msg}).
@@ -103,9 +110,14 @@ multicast(Server,  Msg) ->
 randomcast(Server, Msg) ->
     gen_server:cast(Server, {msg, random, Msg}).
 
-keyhashcast(Server, Msg) when is_tuple(Msg) ->
+keyhashcast(Server, Msg) when is_tuple(Msg) andalso size(Msg) > 0 ->
     gen_server:cast(Server, {msg, keyhash, Msg});
 keyhashcast(_Server, Msg) ->
+    {error, {not_a_valid_message, Msg}}.
+
+dynamic_cast(Server, Msg) when is_tuple(Msg) andalso size(Msg) > 0 ->
+    gen_server:cast(Server, {msg, unique, Msg});
+dynamic_cast(_Server, Msg) ->
     {error, {not_a_valid_message, Msg}}.
 
 sync(Server) ->
@@ -146,15 +158,27 @@ init([WorkerMod, WorkerSup]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call({start_workers, NumberOfWorkers, WorkerConfig}, _From,
-            State = #state{workers = []}) ->
+            State = #state{workers = [], dynamic = false}) ->
     Options = i_make_options(State),
     Workers = i_start_workers(State#state.sup_pid, NumberOfWorkers,
                               WorkerConfig, Options),
     {reply, ok, State#state{workers = Workers, worker_config = WorkerConfig}};
-handle_call({start_workers, _NumberOfWorkers, _WorkerConfig}, _From, State) ->
+handle_call({start_workers, _NumberOfWorkers, _WorkerConfig}, _From,
+            State = #state{dynamic = false}) ->
     {reply, {error, already_started}, State};
+handle_call({start_workers, _NumberOfWorkers, _WorkerConfig},
+            _From, State = #state{dynamic = true}) ->
+    {reply, {error, dynamic_workers}, State};
+handle_call(dynamic_workers, _From, State = #state{workers = []}) ->
+    {reply, ok, State#state{dynamic = true}};
+handle_call(dynamic_workers, _From, State) ->
+    {reply, {error, workers_already_started}, State};
 handle_call({set_targets, Targets}, _From, State) ->
     {reply, ok, State#state{targets = Targets}};
+handle_call(sync, _From, State = #state{dynamic = true}) ->
+    i_sync(State#state.worker_mod,
+           lists:map(fun({_Key, Worker}) -> Worker end, State#state.workers)),
+    {reply, ok, State};
 handle_call(sync, _From, State) ->
     i_sync(State#state.worker_mod, State#state.workers),
     {reply, ok, State};
@@ -173,6 +197,11 @@ handle_call(Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_cast({msg, unique, Msg}, State0 = #state{dynamic = true}) ->
+    State1 = i_dynamic_cast(Msg, State0),
+    {noreply, State1};
+handle_cast({msg, _DistType, _Msg}, State = #state{dynamic = true}) ->
+    {noreply, State};
 handle_cast({msg, _DistType, _Msg}, State = #state{workers = []}) ->
     {noreply, State};
 handle_cast({msg, all, Msg}, State = #state{worker_mod = epw}) ->
@@ -247,6 +276,27 @@ i_keyhashcast(Workers, Msg) ->
     Hash = erlang:phash2(Key, length(Workers)) + 1,
     {WorkerPid, _} = lists:nth(Hash, Workers),
     epw:process(WorkerPid, Msg).
+
+i_dynamic_cast(Msg, State0) ->
+    Key = element(1, Msg),
+    {WorkerPid, State1} =
+        case proplists:lookup(Key, State0#state.workers) of
+            {Key, {WorkerPid0, _}} ->
+                {WorkerPid0, State0};
+            none ->
+                i_dynamically_start_worker(Key, State0)
+        end,
+    epw:process(WorkerPid, Msg),
+    State1.
+
+i_dynamically_start_worker(Key, State) ->
+    Options = i_make_options(State),
+    [Worker] = i_start_workers(
+                 State#state.sup_pid, 1,
+                 State#state.worker_config,
+                 Options),
+    {WorkerPid,_} = Worker,
+    {WorkerPid, State#state{workers = [{Key, Worker}| State#state.workers]}}.
 
 i_make_options(#state{targets = undefined}) ->
     [];
