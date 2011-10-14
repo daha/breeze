@@ -56,29 +56,45 @@
 %% @end
 %%--------------------------------------------------------------------
 check_config(Config) ->
-    Topology = proplists:get_value(topology, Config, []),
-    Res = i_check_all(Topology, [fun i_check_topology_syntax/1,
-                                 fun i_check_topology_duplicated_names/1,
-                                 fun i_check_topology_target_references/1,
-                                 fun i_check_topology_target_reference_types/1,
-                                 fun i_check_topology_worker_types/1,
-                                 fun i_check_worker_callback_module/1,
-                                 fun i_check_producer_as_consumer/1
-                                ]),
-    Res.
+    CheckFuns =
+        [{topology,
+          [fun i_check_topology_syntax/1,
+           fun i_check_topology_duplicated_names/1,
+           fun i_check_topology_target_references/1,
+           fun i_check_topology_target_reference_types/1,
+           fun i_check_topology_worker_types/1,
+           fun i_check_worker_callback_module/1,
+           fun i_check_producer_as_consumer/1
+          ]},
+         {worker_config,
+          [fun i_check_worker_config_syntax/1,
+           fun i_check_worker_configs_is_two_tuples_with_atom_and_term/1]}],
+
+    i_check_all(Config, CheckFuns).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
-
-i_check_all(Topology, [CheckFun | CheckFuns]) ->
-    case CheckFun(Topology) of
+i_check_all(Config, [{Key, CheckFuns} | Rest]) ->
+    KeyConfig = proplists:get_value(Key, Config, []),
+    case i_check_all_funs(KeyConfig, CheckFuns) of
         ok ->
-            i_check_all(Topology, CheckFuns);
+            i_check_all(Config, Rest);
         Error ->
             Error
     end;
-i_check_all(_Topology, []) ->
+i_check_all(_Config, []) ->
+    ok.
+
+
+i_check_all_funs(KeyConfig, [CheckFun | CheckFuns]) ->
+    case CheckFun(KeyConfig) of
+        ok ->
+            i_check_all_funs(KeyConfig, CheckFuns);
+        Error ->
+            Error
+    end;
+i_check_all_funs(_KeyConfig, []) ->
     ok.
 
 % i_check_topology_syntax/1
@@ -223,4 +239,19 @@ i_check_producer_as_consumer_target([{Name, _} | Rest], ProducerNames) ->
                 {error, {producer_as_consumer, Name}}
         end;
 i_check_producer_as_consumer_target([], _ProducerNames) ->
+    ok.
+
+% i_check_worker_config_syntax/
+i_check_worker_config_syntax(WorkerConfig) when is_list(WorkerConfig) ->
+    ok;
+i_check_worker_config_syntax(WorkerConfig) ->
+    {error, {worker_config_is_not_a_list, WorkerConfig}}.
+
+% i_check_worker_configs_is_two_tuples_with_atom_and_term/1
+i_check_worker_configs_is_two_tuples_with_atom_and_term([{Name, _Term} | Rest])
+  when is_atom(Name) ->
+    i_check_worker_configs_is_two_tuples_with_atom_and_term(Rest);
+i_check_worker_configs_is_two_tuples_with_atom_and_term([WorkerConfig | _Rest]) ->
+    {error, {invalid_worker_config, WorkerConfig}};
+i_check_worker_configs_is_two_tuples_with_atom_and_term([]) ->
     ok.

@@ -191,3 +191,25 @@ producers_is_not_allowed_as_consumers_test() ->
                             {name2, producer, eg_dummy, 1, []}]}],
     ?assertEqual({error, {producer_as_consumer, name2}},
                  config_validator:check_config(ProducerAsConsumer)).
+
+valid_worker_config_test() ->
+    ValidWorkerConfig1 = [{worker_config, [{foo, []}]}],
+    ValidWorkerConfig2 = [{worker_config, [{foo, [foo]}, {bar, [baz]}]}],
+    ?assertEqual(ok, config_validator:check_config(ValidWorkerConfig1)),
+    ?assertEqual(ok, config_validator:check_config(ValidWorkerConfig2)).
+
+worker_config_is_not_a_list_test() ->
+    InvalidWorkerConfig = [{worker_config, foo}],
+    ?assertEqual({error, {worker_config_is_not_a_list, foo}},
+                 config_validator:check_config(InvalidWorkerConfig)).
+
+invalid_worker_config_test() ->
+        InvalidWorkerConfig1 = [{worker_config, [{foo}]}],
+        InvalidWorkerConfig2 = [{worker_config, [{1, foo}]}],
+        InvalidWorkerConfig3 = [{worker_config, [{foo, bar, baz}]}],
+    ?assertEqual({error, {invalid_worker_config, {foo}}},
+                 config_validator:check_config(InvalidWorkerConfig1)),
+    ?assertEqual({error, {invalid_worker_config, {1, foo}}},
+                 config_validator:check_config(InvalidWorkerConfig2)),
+    ?assertEqual({error, {invalid_worker_config, {foo, bar, baz}}},
+                 config_validator:check_config(InvalidWorkerConfig3)).
