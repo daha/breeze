@@ -4,10 +4,13 @@ NEW:
   created in that directory. (more work to handle epw than eg)
 * Make it possible to stop epc:s dynamically
 * Dynamically add/remove targets in a epc
+* Consistent naming of WorkerConfig - CallbackConfig
+* Garbage collect dynamic workers (with empty state)?
+* improve performance for dynamic workers, a list might not be so good for 1000s
+  of workers
 
 HIGH:
-* Route messages in epc to workers for
-  * one worker per key, create workers dynamically when needed
+* move worker config to the start of the epc (to work with dynamic workers)
 * write simple epw:s that do useful work
 * handle the simple_one_for_one workers (they do not die in sync with its sup)
   * start to use supervisor2 from rabbitmq-server
