@@ -194,8 +194,6 @@ handle_call(Request, _From, State) ->
 handle_cast({msg, unique, Msg}, State0 = #state{dynamic = true}) ->
     State1 = i_dynamic_cast(Msg, State0),
     {noreply, State1};
-handle_cast({msg, _DistType, _Msg}, State = #state{dynamic = true}) ->
-    {noreply, State};
 handle_cast({msg, _DistType, _Msg}, State = #state{workers = []}) ->
     {noreply, State};
 handle_cast({msg, all, Msg}, State = #state{worker_mod = epw}) ->
@@ -204,7 +202,8 @@ handle_cast({msg, all, Msg}, State = #state{worker_mod = epw}) ->
 handle_cast({msg, random, Msg}, State = #state{worker_mod = epw}) ->
     i_random_cast(State#state.workers, Msg),
     {noreply, State};
-handle_cast({msg, keyhash, Msg}, State = #state{worker_mod = epw}) ->
+handle_cast({msg, keyhash, Msg}, State = #state{worker_mod = epw,
+                                                dynamic = false}) ->
     i_keyhash_cast(State#state.workers, Msg),
     {noreply, State};
 handle_cast(_Msg, State) ->

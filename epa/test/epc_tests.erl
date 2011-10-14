@@ -74,7 +74,9 @@ tests_with_mock_test_() ->
             fun ?MODULE:t_remember_the_old_dynamic_workers_when_starting_new_ones/1,
             fun ?MODULE:t_dynamic_workers_should_be_restarted_if_they_crash/1,
             fun ?MODULE:t_dynamic_cast_messages_must_be_a_tuple_with_a_key/1,
-            fun ?MODULE:t_dynamic_should_not_only_handle_dynamic_cast/1,
+            fun ?MODULE:t_dynamic_should_handle_random_cast/1,
+            fun ?MODULE:t_dynamic_should_handle_multicast/1,
+            fun ?MODULE:t_dynamic_should_not_handle_keyhash_cast/1,
             fun ?MODULE:t_non_dynamic_should_not_handle_unique/1,
             fun ?MODULE:t_config_with_one_epc_target/1,
             fun ?MODULE:t_should_not_crash_on_random_data/1,
@@ -286,13 +288,27 @@ t_dynamic_cast_messages_must_be_a_tuple_with_a_key([Pid | _]) ->
     ?assertEqual({error, {not_a_valid_message, Msg1}}, epc:dynamic_cast(Pid, Msg1)),
     ?assertEqual({error, {not_a_valid_message, Msg2}}, epc:dynamic_cast(Pid, Msg2)).
 
-t_dynamic_should_not_only_handle_dynamic_cast([Pid, _WorkerSup, WorkerMod | _]) ->
+t_dynamic_should_handle_random_cast([Pid, _WorkerSup, WorkerMod | _]) ->
+    ok = epc:enable_dynamic_workers(Pid),
+    Msg = {key1, data1},
+    epc:dynamic_cast(Pid, Msg), % Create a worker
+    epc:random_cast(Pid, Msg),
+    epc:sync(Pid),
+    ?assertEqual(2, meck:num_calls(WorkerMod, process, '_')).
+
+t_dynamic_should_handle_multicast([Pid, _WorkerSup, WorkerMod | _]) ->
+    ok = epc:enable_dynamic_workers(Pid),
+    Msg = {key1, data1},
+    epc:dynamic_cast(Pid, Msg), % Create a worker
+    epc:multicast(Pid, Msg),
+    epc:sync(Pid),
+    ?assertEqual(2, meck:num_calls(WorkerMod, process, '_')).
+
+t_dynamic_should_not_handle_keyhash_cast([Pid, _WorkerSup, WorkerMod | _]) ->
     ok = epc:enable_dynamic_workers(Pid),
     Msg = {key1, data1},
     epc:dynamic_cast(Pid, Msg), % Create a worker
     epc:keyhash_cast(Pid, Msg),
-    epc:multicast(Pid, Msg),
-    epc:random_cast(Pid, Msg),
     epc:sync(Pid),
     ?assertEqual(1, meck:num_calls(WorkerMod, process, '_')).
 
