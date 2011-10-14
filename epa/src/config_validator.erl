@@ -198,34 +198,13 @@ i_check_target_types([]) ->
 
 % i_check_dynamic_target_must_have_dynamic_workers/1
 i_check_dynamic_target_must_have_dynamic_workers(Topology) ->
-    DynamicTargets = i_find_dynamic_workers(Topology),
-    i_check_dynamic_target_must_have_dynamic_workers(Topology, DynamicTargets).
+    DynamicTargets = i_find_dynamic_worker_names(Topology),
+    ErrorType = dynamic_target_must_have_dynamic_workers,
+    TargetKey = dynamic,
+    i_check_all_targets_are_in_target_set(Topology, DynamicTargets,
+                                          TargetKey, ErrorType).
 
-i_check_dynamic_target_must_have_dynamic_workers([{_,_,_,_,Targets} | Rest],
-                                                 DynamicTargets) ->
-    case i_check_dynamic_targets_are_dynamic(Targets, DynamicTargets) of
-        ok ->
-            i_check_dynamic_target_must_have_dynamic_workers(
-              Rest, DynamicTargets);
-        Error ->
-            Error
-    end;
-i_check_dynamic_target_must_have_dynamic_workers([], _DynamicTargets) ->
-    ok.
-
-i_check_dynamic_targets_are_dynamic([{Name, dynamic} | Rest], DynamicTargets) ->
-    case lists:member(Name, DynamicTargets) of
-        true ->
-            i_check_dynamic_targets_are_dynamic(Rest, DynamicTargets);
-        false ->
-            {error, {dynamic_target_must_have_dynamic_workers, Name}}
-    end;
-i_check_dynamic_targets_are_dynamic([_Target|Rest], DynamicTargets) ->
-    i_check_dynamic_targets_are_dynamic(Rest, DynamicTargets);
-i_check_dynamic_targets_are_dynamic([], _DynamicTargets) ->
-    ok.
-
-i_find_dynamic_workers(Topology) ->
+i_find_dynamic_worker_names(Topology) ->
     lists:foldl(
       fun ({Name, _, _, dynamic, _}, Acc) -> [Name|Acc];
          (_, Acc) -> Acc
@@ -234,31 +213,18 @@ i_find_dynamic_workers(Topology) ->
 
 % i_check_keyhash_target_must_not_be_dynamic/1
 i_check_keyhash_target_must_not_be_dynamic(Topology) ->
-    DynamicTargets = i_find_dynamic_workers(Topology),
-    i_check_keyhash_target_must_not_be_dynamic(Topology, DynamicTargets).
+    NonDynamicTargets = i_find_non_dynamic_worker_names(Topology),
+    ErrorType = keyhash_targets_must_not_be_dynamic,
+    TargetKey = keyhash,
+    i_check_all_targets_are_in_target_set(Topology, NonDynamicTargets,
+                                          TargetKey, ErrorType).
 
-i_check_keyhash_target_must_not_be_dynamic([{_,_,_,_,Targets}|Rest],
-                                           DynamicTargets) ->
-    case i_check_keyhash_targets_are_not_dynamic(Targets, DynamicTargets) of
-        ok ->
-            i_check_keyhash_target_must_not_be_dynamic(Rest, DynamicTargets);
-        Error ->
-            Error
-    end;
-i_check_keyhash_target_must_not_be_dynamic([], _DynamicTargets) ->
-    ok.
-
-i_check_keyhash_targets_are_not_dynamic([{Name, keyhash}|Rest], DynamicTargets) ->
-    case lists:member(Name, DynamicTargets) of
-        false ->
-            i_check_keyhash_targets_are_not_dynamic(Rest, DynamicTargets);
-        true ->
-            {error, {keyhash_targets_must_not_be_dynamic, Name}}
-    end;
-i_check_keyhash_targets_are_not_dynamic([_|Rest], DynamicTargets) ->
-    i_check_keyhash_targets_are_not_dynamic(Rest, DynamicTargets);
-i_check_keyhash_targets_are_not_dynamic([], _DynamicTargets) ->
-   ok.
+i_find_non_dynamic_worker_names(Topology) ->
+    lists:foldl(
+      fun ({_,_,_, dynamic, _}, Acc) -> Acc;
+         ({Name, _,_,_,_}, Acc) -> [Name|Acc]
+      end,
+      [], Topology).
 
 % i_check_topology_worker_types/1
 i_check_topology_worker_types([{_, producer, _, _, _} | Rest]) ->
@@ -284,33 +250,18 @@ i_check_worker_callback_module([]) ->
 
 % i_check_producer_as_consumer/1
 i_check_producer_as_consumer(Topology) ->
-    ProducerNames = lists:foldl(
-                      fun({Name, producer, _, _, _}, Acc) -> [Name | Acc];
-                         (_, Acc) -> Acc
-                      end, [], Topology),
-    i_check_producer_as_consumer(Topology, ProducerNames).
+    ConsumerNames = i_find_consumer_names(Topology),
+    ErrorType = producer_as_consumer,
+    i_check_all_targets_are_in_target_set(Topology, ConsumerNames, '_',
+                                          ErrorType).
 
-i_check_producer_as_consumer([{_, _, _, _, Targets} | Rest], ProducerNames) ->
-    case i_check_producer_as_consumer_target(Targets, ProducerNames) of
-        ok ->
-            i_check_producer_as_consumer(Rest, ProducerNames);
-        Error ->
-            Error
-    end;
-i_check_producer_as_consumer([], _ProducerNames) ->
-    ok.
+i_find_consumer_names(Topology) ->
+    lists:foldl(
+      fun({Name, consumer, _, _, _}, Acc) -> [Name | Acc];
+         (_, Acc) -> Acc
+      end, [], Topology).
 
-i_check_producer_as_consumer_target([{Name, _} | Rest], ProducerNames) ->
-    case lists:member(Name, ProducerNames) of
-        false ->
-            i_check_producer_as_consumer_target(Rest, ProducerNames);
-        _ ->
-            {error, {producer_as_consumer, Name}}
-    end;
-i_check_producer_as_consumer_target([], _ProducerNames) ->
-    ok.
-
-% i_check_worker_config_syntax/
+% i_check_worker_config_syntax/1
 i_check_worker_config_syntax(WorkerConfig) when is_list(WorkerConfig) ->
     ok;
 i_check_worker_config_syntax(WorkerConfig) ->
@@ -323,4 +274,32 @@ i_check_worker_configs_is_two_tuples_with_atom_and_term([{Name, _Term} | Rest])
 i_check_worker_configs_is_two_tuples_with_atom_and_term([WorkerConfig | _]) ->
     {error, {invalid_worker_config, WorkerConfig}};
 i_check_worker_configs_is_two_tuples_with_atom_and_term([]) ->
+    ok.
+
+%% i_check_all_targets_are_in_target_set/4
+i_check_all_targets_are_in_target_set([{_,_,_,_,Targets}|Rest], TargetsSet,
+                                      TargetKey, ErrorType) ->
+    case i_check_target_name_is_member_list(
+           Targets, TargetKey, TargetsSet, ErrorType) of
+        ok ->
+            i_check_all_targets_are_in_target_set(
+              Rest, TargetsSet, TargetKey, ErrorType);
+        Error ->
+            Error
+    end;
+i_check_all_targets_are_in_target_set([], _TSet, _TKey, _ErrorT) ->
+    ok.
+
+i_check_target_name_is_member_list([{Name, Type}|Rest],
+                                    TargetType, Members, Error)
+  when  Type =:= TargetType orelse TargetType =:= '_' ->
+    case lists:member(Name, Members) of
+        true ->
+           i_check_target_name_is_member_list(Rest, TargetType, Members, Error);
+        false ->
+            {error, {Error, Name}}
+    end;
+i_check_target_name_is_member_list([_|Rest], TargetType, Members, Error) ->
+    i_check_target_name_is_member_list(Rest, TargetType, Members, Error);
+i_check_target_name_is_member_list([], _TargetType, _Members, _Error) ->
     ok.
