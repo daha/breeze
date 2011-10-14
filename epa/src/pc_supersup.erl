@@ -81,7 +81,9 @@ stop() ->
         undefined ->
             ok;
         Pid ->
-            true = exit(Pid, normal)
+	    Ref = monitor(process, Pid),
+	    true = exit(Pid, normal),
+	    receive {'DOWN', Ref, process, Pid, _} -> ok end
     end,
     ok.
 

@@ -57,12 +57,19 @@ start_stop_test() ->
 
 should_start_children_test() ->
     {ok, Pid} = epa_sup:start_link(),
-    Expected0 = [{specs, 3},
+    Expected = [{specs, 3},
                  {active, 3},
                  {supervisors, 2},
                  {workers, 1}],
-    ?assertEqual(Expected0, supervisor:count_children(Pid)),
+    ?assertEqual(Expected, supervisor:count_children(Pid)),
     epa_sup:stop().
+
+should_stop_children_on_stop_test() ->
+    {ok, Pid} = epa_sup:start_link(),
+    Children = supervisor:which_children(Pid),
+    epa_sup:stop(),
+    ?assert(lists:all(fun({_,CPid,_,_}) -> undefined == process_info(CPid) end,
+		      Children)).
 
 should_get_application_env_test() ->
     meck:new(application, [unstick, passthrough]),

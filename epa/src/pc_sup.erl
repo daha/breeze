@@ -69,7 +69,9 @@ start_link(WorkerBehaviour, Module) ->
     supervisor:start_link(?MODULE, [WorkerBehaviour, Module]).
 
 stop(Pid) ->
+    Ref = monitor(process, Pid),
     true = exit(Pid, normal),
+    receive {'DOWN', Ref, process, Pid, _} -> ok end,
     ok.
 
 start_workers(Pid, NumberOfChildren) ->
