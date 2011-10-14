@@ -88,6 +88,8 @@ verify_emitted_message_is_random_casted_to_all_targets_test() ->
     verify_emitted_message_is_sent_to_all_targets(random_cast, random), ok.
 verify_emitted_message_is_keyhash_casted_to_all_targets_test() ->
     verify_emitted_message_is_sent_to_all_targets(keyhash_cast, keyhash), ok.
+verify_emitted_message_is_dynamically_casted_to_all_targets_test() ->
+    verify_emitted_message_is_sent_to_all_targets(dynamic_cast, dynamic), ok.
 
 verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
     Msg = {foo, bar},

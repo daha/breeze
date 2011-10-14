@@ -216,6 +216,8 @@ i_make_emit_fun(Targets) ->
                      ({Pid, random}) ->
                           epc:random_cast(Pid, Msg);
                      ({Pid, keyhash}) ->
-                          epc:keyhash_cast(Pid, Msg)
+                          epc:keyhash_cast(Pid, Msg);
+                     ({Pid, dynamic}) ->
+                          epc:dynamic_cast(Pid, Msg)
                   end, Targets)
     end.

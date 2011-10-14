@@ -156,7 +156,7 @@ t_random_cast([Pid, WorkerSup | _]) ->
     Workers = get_workers(WorkerSup),
     ok = epc:random_cast(Pid, Msg = msg),
     ok = epc:sync(Pid),
-    
+
     OrderedWorkers = order_workers(Workers, Msg),
     assert_workers_random_and_process(OrderedWorkers, [1, 0], Msg),
     random_cast_and_assert(Pid, Msg, OrderedWorkers, [2, 0]),
@@ -172,7 +172,7 @@ t_keyhash_cast([Pid, WorkerSup | _]) ->
     ok = epc:sync(Pid),
     OrderedWorkers = order_workers(Workers, Msg1),
     assert_workers_process_function_is_called(OrderedWorkers, [1, 0], Msg1),
-    
+
     keyhash_cast_and_assert(Pid, Msg1, OrderedWorkers, [2, 0]),
     keyhash_cast_and_assert(Pid, Msg2, OrderedWorkers, [0, 1]),
     ok.
