@@ -57,6 +57,9 @@ epw_fail_to_start_worker_test() ->
 epw_workers_should_be_temporary_test() ->
     test_workers_should_be_temporary(epw, epw_dummy), ok.
 
+epw_should_pass_configuration_to_worker_test() ->
+    test_should_pass_configuration_to_worker(epw, epw_dummy), ok.
+
 % use eg as a worker
 eg_start_stop_test() ->
     test_start_stop(eg, eg_dummy), ok.
@@ -69,6 +72,9 @@ eg_fail_to_start_worker_test() ->
 
 eg_workers_should_be_temporary_test() ->
     test_workers_should_be_temporary(eg, eg_dummy), ok.
+
+eg_should_pass_configuration_to_worker_test() ->
+    test_should_pass_configuration_to_worker(eg, eg_dummy), ok.
 
 %% Common tests
 test_start_stop(WorkerMod, CallbackModule) ->
@@ -92,6 +98,16 @@ test_start_workers(WorkerMod, CallbackModule) ->
                 {workers, 2}],
     ?assert(meck:called(WorkerMod, start_link, [CallbackModule, [], []])),
     ?assertEqual(Expected, supervisor:count_children(Pid)),
+    stop(Pid, WorkerMod).
+
+test_should_pass_configuration_to_worker(WorkerMod, CallbackModule) ->
+    Pid = start(WorkerMod, CallbackModule),
+    WorkerOpts = [make_ref()],
+    Opts = [make_ref()],
+    {ok, [_ChildPid]} =
+        pc_sup:start_workers(Pid, 1, WorkerOpts, Opts),
+    ?assert(meck:called(WorkerMod, start_link,
+                        [CallbackModule, WorkerOpts, Opts])),
     stop(Pid, WorkerMod).
 
 test_fail_to_start_worker(WorkerMod, _CallbackModule) ->

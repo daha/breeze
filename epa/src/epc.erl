@@ -51,6 +51,7 @@
 
 -export([set_targets/2]).
 -export([start_workers/2]).
+-export([start_workers/3]).
 
 -export([sync/1]).
 
@@ -62,7 +63,13 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--record(state, {worker_mod, sup_pid, workers = [], targets}).
+-record(state, {
+                worker_mod,
+                sup_pid,
+                workers = [],
+                worker_config = [],
+                targets
+               }).
 
 %%%===================================================================
 %%% API
@@ -86,7 +93,9 @@ set_targets(Server, Targets) when is_list(Targets) ->
     gen_server:call(Server, {set_targets, Targets}).
 
 start_workers(Server, NumberOfWorkers) ->
-    gen_server:call(Server, {start_workers, NumberOfWorkers}).
+    start_workers(Server, NumberOfWorkers, _WorkerConfig = []).
+start_workers(Server, NumberOfWorkers, WorkerConfig) ->
+    gen_server:call(Server, {start_workers, NumberOfWorkers, WorkerConfig}).
 
 multicast(Server,  Msg) ->
     gen_server:cast(Server, {msg, all, Msg}).
@@ -136,12 +145,13 @@ init([WorkerMod, WorkerSup]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({start_workers, NumberOfWorkers}, _From,
+handle_call({start_workers, NumberOfWorkers, WorkerConfig}, _From,
             State = #state{workers = []}) ->
     Options = i_make_options(State),
-    Workers = i_start_workers(State#state.sup_pid, NumberOfWorkers, Options),
-    {reply, ok, State#state{workers = Workers}};
-handle_call({start_workers, _NumberOfWorkers}, _From, State) ->
+    Workers = i_start_workers(State#state.sup_pid, NumberOfWorkers,
+                              WorkerConfig, Options),
+    {reply, ok, State#state{workers = Workers, worker_config = WorkerConfig}};
+handle_call({start_workers, _NumberOfWorkers, _WorkerConfig}, _From, State) ->
     {reply, {error, already_started}, State};
 handle_call({set_targets, Targets}, _From, State) ->
     {reply, ok, State#state{targets = Targets}};
@@ -150,8 +160,8 @@ handle_call(sync, _From, State) ->
     {reply, ok, State};
 handle_call(stop, _From, State) ->
     {stop, normal, ok, State};
-handle_call(_Request, _From, State) ->
-    {reply, error, State}.
+handle_call(Request, _From, State) ->
+    {reply, {error, {invalid_request, Request}}, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -243,8 +253,9 @@ i_make_options(#state{targets = undefined}) ->
 i_make_options(#state{targets = Targets}) ->
     [{targets, Targets}].
 
-i_start_workers(SupPid, NumberOfWorkers, Options) ->
-    {ok, Workers} = pc_sup:start_workers(SupPid, NumberOfWorkers, Options),
+i_start_workers(SupPid, NumberOfWorkers, WorkerConfig, Options) ->
+    {ok, Workers} = pc_sup:start_workers(SupPid, NumberOfWorkers,
+                                         WorkerConfig, Options),
     i_monitor_workers(Workers).
 
 i_monitor_workers(Workers) ->
@@ -252,6 +263,7 @@ i_monitor_workers(Workers) ->
 
 i_restart_worker(OldPid, State) ->
     Options = i_make_options(State),
-    [NewWorker] = i_start_workers(State#state.sup_pid, 1, Options),
+    [NewWorker] = i_start_workers(State#state.sup_pid, 1,
+                                  State#state.worker_config, Options),
     Workers = lists:keyreplace(OldPid, 1, State#state.workers, NewWorker),
     State#state{workers = Workers}.
