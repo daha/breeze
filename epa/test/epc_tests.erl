@@ -72,6 +72,7 @@ tests_with_mock_test_() ->
             fun ?MODULE:t_send_message_to_started_worker_when_doing_first_keycast/1,
             fun ?MODULE:t_same_key_as_already_started_should_not_start_new_worker/1,
             fun ?MODULE:t_remember_the_old_dynamic_workers_when_starting_new_ones/1,
+            fun ?MODULE:t_dynamic_workers_should_be_restarted_if_they_crash/1,
             fun ?MODULE:t_dynamic_cast_messages_must_be_a_tuple_with_a_key/1,
             fun ?MODULE:t_dynamic_should_not_only_handle_dynamic_cast/1,
             fun ?MODULE:t_non_dynamic_should_not_handle_unique/1,
@@ -252,6 +253,32 @@ t_remember_the_old_dynamic_workers_when_starting_new_ones(
     ?assertEqual(2, meck:num_calls(WorkerMod, process, [WorkerPid1, Msg1])),
     ?assertEqual(1, meck:num_calls(WorkerMod, process, [WorkerPid2, Msg2])).
 
+t_dynamic_workers_should_be_restarted_if_they_crash(
+  [Pid, WorkerSup, WorkerMod | _ ]) ->
+    ok = epc:enable_dynamic_workers(Pid),
+    Msg1 = {key1, data1},
+    Msg2 = {key2, data2},
+    epc:dynamic_cast(Pid, Msg1),
+    epc:dynamic_cast(Pid, Msg2),
+    epc:sync(Pid),
+    Workers = [WorkerPid1, WorkerPid2] = get_workers(WorkerSup),
+    sync_exit(WorkerPid1),
+    ?assertEqual(3, meck:num_calls(WorkerMod, start_link, '_')),
+
+    ?assertEqual(2, length(get_workers(WorkerSup))),
+    Workers2 = get_workers(WorkerSup),
+    [NewWorker] = Workers2 -- Workers,
+    epc:dynamic_cast(Pid, Msg1),
+    epc:sync(Pid),
+
+    ?assertEqual(1, meck:num_calls(WorkerMod, process, [NewWorker, Msg1])),
+    ?assertEqual(1, meck:num_calls(WorkerMod, process, [WorkerPid2, Msg2])),
+
+    epc:dynamic_cast(Pid, Msg2),
+    epc:sync(Pid),
+    ?assertEqual(1, meck:num_calls(WorkerMod, process, [NewWorker, Msg1])),
+    ?assertEqual(2, meck:num_calls(WorkerMod, process, [WorkerPid2, Msg2])).
+
 t_dynamic_cast_messages_must_be_a_tuple_with_a_key([Pid | _]) ->
     ok = epc:enable_dynamic_workers(Pid),
     Msg1 = foo,
@@ -273,6 +300,7 @@ t_non_dynamic_should_not_handle_unique([Pid, WorkerSup, WorkerMod | _ ]) ->
     epc:dynamic_cast(Pid, {key1, data1}),
     ?assertMatch([], get_workers(WorkerSup)),
     ?assertEqual(0, meck:num_calls(WorkerMod, process, '_')).
+
 
 % TODO: should set callbackArgs in dynamically started workers
 
