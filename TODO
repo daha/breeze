@@ -6,7 +6,6 @@ NEW:
 * Dynamically add/remove targets in a epc
 
 HIGH:
-* Figure out a way to pass configuration to workers
 * Route messages in epc to workers for
   * one worker per key, create workers dynamically when needed
 * write simple epw:s that do useful work
