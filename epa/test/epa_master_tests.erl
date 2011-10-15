@@ -279,7 +279,7 @@ append_worker(Config, Name, WorkerType, Callback, NumWorkers, Targets) ->
 
 append_worker_config(Config, WorkerName, DistType) ->
     WorkerConfigs0 = proplists:get_value(worker_config, Config, []),
-    WorkerConfigs1 = [{WorkerName, DistType} |WorkerConfigs0],
+    WorkerConfigs1 = WorkerConfigs0 ++ [{WorkerName, DistType}],
     merge([{worker_config, WorkerConfigs1}], Config).
 
 merge(PropList1, PropList2) ->
