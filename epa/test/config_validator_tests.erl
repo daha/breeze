@@ -45,27 +45,22 @@
 -include_lib("eunit/include/eunit.hrl").
 
 valid_topology_test() ->
-    Topology1 = [{topology, [{name, consumer, epw_dummy, 1, []}]}],
-    Topology2 = [{topology, [{name, producer, eg_dummy, 2, []}]}],
-    Topology3 = [{topology, [{name1, consumer, epw_dummy, 3,
-                              [{name2, all}]},
-                             {name2, consumer, epw_dummy, 4, []}]}],
-    Topology4 = [{topology, [{name1, consumer, epw_dummy, 5,
-                              [{name2, random}]},
-                             {name2, consumer, epw_dummy, 6, []}]}],
-    Topology5 = [{topology, [{name1, consumer, epw_dummy, 7,
-                              [{name2, keyhash}]},
-                             {name2, consumer, epw_dummy, 8, []}]}],
-    Topology6 = [{topology, [{name1, consumer, epw_dummy, 9,
-                              [{name2, keyhash}, {name3, all}]},
-                             {name2, consumer, epw_dummy, 10, []},
-                             {name3, consumer, epw_dummy, 11, []}]}],
-    Topology7 = [{topology, [{name1, producer, eg_dummy, 12,
-                              [{name2, random}]},
-                             {name2, consumer, epw_dummy, 13, []}]}],
-    Topology8 = [{topology, [{name1, producer, eg_dummy, 14,
-                              [{name2, dynamic}]},
-                             {name2, consumer, epw_dummy, dynamic, []}]}],
+    Topology1 = [{topology, [consumer_cb(name, 1)]}],
+    Topology2 = [{topology, [producer_db(name, 2)]}],
+    Topology3 = [{topology, [consumer_cb(name1, 3, [{name2, all}]),
+                             consumer_cb(name2, 4)]}],
+    Topology4 = [{topology, [consumer_cb(name1, 5, [{name2, random}]),
+                             consumer_cb(name2, 6)]}],
+    Topology5 = [{topology, [consumer_cb(name1, 7, [{name2, keyhash}]),
+                             consumer_cb(name2, 8)]}],
+    Topology6 = [{topology, [consumer_cb(name1, 9,
+                                      [{name2, keyhash}, {name3, all}]),
+                             consumer_cb(name2, 10),
+                             consumer_cb(name3, 11)]}],
+    Topology7 = [{topology, [producer_db(name1, 12, [{name2, random}]),
+                             consumer_cb(name2, 13)]}],
+    Topology8 = [{topology, [producer_db(name1, 14, [{name2, dynamic}]),
+                             consumer_cb(name2, dynamic)]}],
     ?assertEqual(ok, config_validator:check_config(Topology1)),
     ?assertEqual(ok, config_validator:check_config(Topology2)),
     ?assertEqual(ok, config_validator:check_config(Topology3)),
@@ -80,10 +75,10 @@ invalid_topology_syntax_check_test() ->
     InvalidTopology1 = [{topology, [foo]}],
     InvalidTopology2 = [{topology, [{foo, consumer, bar, 1}]}],
     InvalidTopology3 = [{topology, [{foo, consumer, bar, 1, [], []}]}],
-    InvalidTopology4 = [{topology, [{1, consumer, bar, 1, foo}]}],
-    InvalidTopology5 = [{topology, [{foo, 2, bar, 1, foo}]}],
-    InvalidTopology6 = [{topology, [{foo, consumer, 3, 1, foo}]}],
-    InvalidTopology7 = [{topology, [{foo, consumer, bar, baz, []}]}],
+    InvalidTopology4 = [{topology, [consumer(1, bar, 1, foo)]}],
+    InvalidTopology5 = [{topology, [worker(foo, 2, bar, 1, foo)]}],
+    InvalidTopology6 = [{topology, [consumer(foo, 3, 1, foo)]}],
+    InvalidTopology7 = [{topology, [consumer(foo, bar, baz)]}],
 
     ?assertEqual({error, {invalid_topology_syntax, foo}},
                  config_validator:check_config(InvalidTopology1)),
@@ -103,17 +98,16 @@ invalid_topology_syntax_check_test() ->
                           {foo, consumer, 3, 1, foo}}},
                  config_validator:check_config(InvalidTopology6)),
     ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, baz, []}}},
+                          consumer(foo, bar, baz)}},
                  config_validator:check_config(InvalidTopology7)).
 
 invalid_topology_target_syntax_check_test() ->
-    InvalidTopology1 = [{topology, [{foo, consumer, bar, 1, foo}]}],
-    InvalidTopology2 = [{topology, [{foo, consumer, bar, 1, [foo]}]}],
-    InvalidTopology3 = [{topology, [{foo, consumer, bar, 1, [{foo}]}]}],
-    InvalidTopology4 = [{topology, [{foo, consumer, bar, 1,
-                                     [{foo, bar, baz}]}]}],
-    InvalidTopology5 = [{topology, [{foo, consumer, bar, 1, [{4, bar}]}]}],
-    InvalidTopology6 = [{topology, [{foo, consumer, bar, 1, [{foo, 5}]}]}],
+    InvalidTopology1 = [{topology, [consumer(foo, bar, 1, foo)]}],
+    InvalidTopology2 = [{topology, [consumer(foo, bar, 1, [foo])]}],
+    InvalidTopology3 = [{topology, [consumer(foo, bar, 1, [{foo}])]}],
+    InvalidTopology4 = [{topology, [consumer(foo, bar, 1, [{foo, bar, baz}])]}],
+    InvalidTopology5 = [{topology, [consumer(foo, bar, 1, [{4, bar}])]}],
+    InvalidTopology6 = [{topology, [consumer(foo, bar, 1, [{foo, 5}])]}],
 
     ?assertEqual({error, {invalid_topology_syntax,
                           {foo, consumer, bar, 1, foo}}},
@@ -130,13 +124,13 @@ invalid_topology_target_syntax_check_test() ->
                  config_validator:check_config(InvalidTopology6)).
 
 invalid_topology_target_references_test() ->
-    InvalidTargetRef1 = [{topology, [{name, consumer, bar, 1, [{name, all}]}]}],
-    InvalidTargetRef2 = [{topology, [{name, consumer, bar, 1,
-                                      [{invalid_name, all}]}]}],
-    InvalidTargetRef3 = [{topology, [{name1, consumer, bar, 1, []},
-                                     {name2, consumer, bar, 1,
-                                      [{name1, all},
-                                       {invalid_name, all}]}]}],
+    InvalidTargetRef1 = [{topology, [consumer(name, bar, 1, [{name, all}])]}],
+    InvalidTargetRef2 = [{topology, [consumer(name, bar, 1,
+                                      [{invalid_name, all}])]}],
+    InvalidTargetRef3 = [{topology, [consumer(name1, bar, 1),
+                                     consumer(name2, bar, 1,
+                                              [{name1, all},
+                                               {invalid_name, all}])]}],
     ?assertEqual({error, {invalid_target_ref, name}},
                  config_validator:check_config(InvalidTargetRef1)),
     ?assertEqual({error, {invalid_target_ref, invalid_name}},
@@ -146,25 +140,25 @@ invalid_topology_target_references_test() ->
     ok.
 
 invalid_topology_target_ref_type_test() ->
-    InvalidTargetRefType = [{topology, [{name1, consumer, bar, 1, []},
-                                        {name2, consumer, bar, 1,
-                                         [{name1, foo}]}]}],
+    InvalidTargetRefType = [{topology, [consumer(name1, bar, 1),
+                                        consumer(name2, bar, 1,
+                                                 [{name1, foo}])]}],
     ?assertEqual({error, {invalid_target_ref_type, foo}},
                  config_validator:check_config(InvalidTargetRefType)).
 
 valid_topology_target_ref_type_test() ->
-    ValidTargetRefType1 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                       {name2, consumer, epw_dummy, 1,
-                                        [{name1, all}]}]}],
-    ValidTargetRefType2 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                       {name2, consumer, epw_dummy, 1,
-                                        [{name1, random}]}]}],
-    ValidTargetRefType3 = [{topology, [{name1, consumer, epw_dummy, 1, []},
-                                       {name2, consumer, epw_dummy, 1,
-                                        [{name1, keyhash}]}]}],
-    ValidTargetRefType4 = [{topology, [{name1, producer, eg_dummy, 1,
-                                        [{name2, keyhash}]},
-                                       {name2, consumer, epw_dummy, 1, []}]}],
+    ValidTargetRefType1 =
+        [{topology, [consumer_cb(name1, 1),
+                     consumer_cb(name2, 1, [{name1, all}])]}],
+    ValidTargetRefType2 =
+        [{topology, [consumer_cb(name1, 1),
+                     consumer_cb(name2, 1, [{name1, random}])]}],
+    ValidTargetRefType3 =
+        [{topology, [consumer_cb(name1, 1),
+                     consumer_cb(name2, 1, [{name1, keyhash}])]}],
+    ValidTargetRefType4 =
+        [{topology, [producer_db(name1, 1, [{name2, keyhash}]),
+                     consumer_cb(name2, 1)]}],
     ?assertEqual(ok, config_validator:check_config(ValidTargetRefType1)),
     ?assertEqual(ok, config_validator:check_config(ValidTargetRefType2)),
     ?assertEqual(ok, config_validator:check_config(ValidTargetRefType3)),
@@ -172,41 +166,40 @@ valid_topology_target_ref_type_test() ->
     ok.
 
 invalid_topology_duplicated_worker_name_test() ->
-    DupName = [{topology, [{name, consumer, bar, 1, []},
-                           {name, consumer, bar, 1, []}]}],
+    DupName = [{topology, [consumer(name, bar, 1),
+                           consumer(name, bar, 1)]}],
     ?assertEqual({error, duplicated_worker_name},
                  config_validator:check_config(DupName)).
 
 invalid_topology_worker_type_test() ->
-    InvalidWorkerType = [{topology, [{name, foo, bar, 1, []}]}],
+    InvalidWorkerType = [{topology, [worker(name, foo, bar, 1, [])]}],
     ?assertEqual({error, {invalid_worker_type, foo}},
                  config_validator:check_config(InvalidWorkerType)).
 
 invalid_topology_worker_callback_module_test() ->
-    InvalidWorkerCallbackModule = [{topology,
-                                    [{name, consumer, invalid_callback, 1,
-                                      []}]}],
+    InvalidWorkerCallbackModule =
+        [{topology, [consumer(name, invalid_callback, 1)]}],
     ?assertEqual({error, {invalid_worker_callback_module, invalid_callback}},
                  config_validator:check_config(InvalidWorkerCallbackModule)).
 
 dynamic_target_must_be_dynamic_test() ->
     NotDynamicWorker = [{topology,
-                         [{name1, consumer, epw_dummy, 1, [{name2, dynamic}]},
-                          {name2, consumer, epw_dummy, 1, []}]}],
+                         [consumer_cb(name1, 1, [{name2, dynamic}]),
+                          consumer_cb(name2, 1)]}],
     ?assertEqual({error, {dynamic_target_must_have_dynamic_workers, name2}},
                  config_validator:check_config(NotDynamicWorker)).
 
 keyhash_targets_must_not_be_dynamic_test() ->
     InvalidTopology = [{topology,
-                        [{name1, consumer, epw_dummy, 1, [{name2, keyhash}]},
-                         {name2, consumer, epw_dummy, dynamic, []}]}],
+                        [consumer_cb(name1, 1, [{name2, keyhash}]),
+                         consumer_cb(name2, dynamic)]}],
     ?assertEqual({error, {keyhash_targets_must_not_be_dynamic, name2}},
                  config_validator:check_config(InvalidTopology)).
 
 producers_is_not_allowed_as_consumers_test() ->
     ProducerAsConsumer = [{topology,
-                           [{name1, consumer, epw_dummy, 1, [{name2, all}]},
-                            {name2, producer, eg_dummy, 1, []}]}],
+                           [consumer_cb(name1, 1, [{name2, all}]),
+                            producer_db(name2, 1)]}],
     ?assertEqual({error, {producer_as_consumer, name2}},
                  config_validator:check_config(ProducerAsConsumer)).
 
@@ -231,3 +224,27 @@ invalid_worker_config_test() ->
                  config_validator:check_config(InvalidWorkerConfig2)),
     ?assertEqual({error, {invalid_worker_config, {foo, bar, baz}}},
                  config_validator:check_config(InvalidWorkerConfig3)).
+
+consumer_cb(Name, NumWorkers) ->
+    consumer_cb(Name, NumWorkers, _Targets = []).
+
+consumer_cb(Name, NumWorkers, Targets) ->
+    consumer(Name, _Callback = epw_dummy, NumWorkers, Targets).
+
+consumer(Name, Callback, NumWorkers) ->
+    consumer(Name, Callback, NumWorkers, _Targets = []).
+
+consumer(Name, Callback, NumWorkers, Targets) ->
+    worker(Name, _WorkerType = consumer, Callback, NumWorkers, Targets).
+
+producer_db(Name, NumWorkers) ->
+    producer_db(Name, NumWorkers, _Targets = []).
+
+producer_db(Name, NumWorkers, Targets) ->
+    producer(Name, _Callback = eg_dummy, NumWorkers, Targets).
+
+producer(Name, Callback, NumWorkers, Targets) ->
+    worker(Name, _WorkerType = producer, Callback, NumWorkers, Targets).
+
+worker(Name, WorkerType, Callback, NumWorkers, Targets) ->
+    {Name, WorkerType, Callback, NumWorkers, Targets}.
