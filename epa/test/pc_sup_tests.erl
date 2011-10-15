@@ -80,11 +80,7 @@ eg_should_pass_configuration_to_worker_test() ->
 test_start_stop(WorkerMod, CallbackModule) ->
     {ok, Pid} = pc_sup:start_link(WorkerMod, CallbackModule),
     ?assert(is_process_alive(Pid)),
-    Expected = [{specs, 1},
-                {active, 0},
-                {supervisors, 0},
-                {workers, 0}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
+    sup_tests_common:expect_one_spec_none_active(Pid),
     ok = pc_sup:stop(Pid),
     ok = pc_sup:stop(Pid).
 
@@ -92,12 +88,8 @@ test_start_workers(WorkerMod, CallbackModule) ->
     Pid = start(WorkerMod, CallbackModule),
     ?assertMatch({ok, [_Pid1, _Pid2]},
                  pc_sup:start_workers(Pid, 2)),
-    Expected = [{specs, 1},
-                {active, 2},
-                {supervisors, 0},
-                {workers, 2}],
     ?assert(meck:called(WorkerMod, start_link, [CallbackModule, [], []])),
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
+    sup_tests_common:expect_supervisor_children(Pid, _Sups = 0, _Workers = 2),
     stop(Pid, WorkerMod).
 
 test_should_pass_configuration_to_worker(WorkerMod, CallbackModule) ->
@@ -121,11 +113,7 @@ test_workers_should_be_temporary(WorkerMod, CallbackModule) ->
     Ref = monitor(process, ChildPid1),
     exit(ChildPid1, abnormal),
     receive {'DOWN', Ref, process, ChildPid1, _Info} -> ok end,
-    Expected = [{specs, 1},
-                {active, 1},
-                {supervisors, 0},
-                {workers, 1}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
+    sup_tests_common:expect_one_active_worker(Pid),
     stop(Pid, WorkerMod).
 
 %% Internal functions

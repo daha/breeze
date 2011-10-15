@@ -48,15 +48,7 @@
 
 
 start_stop_test() ->
-    {ok, Pid} = pc_supersup:start_link(),
-    ?assertNot(undefined == process_info(Pid)),
-    ?assertMatch(Pid when is_pid(Pid), whereis(pc_supersup)),
-    Ref = monitor(process, Pid),
-    ok = pc_supersup:stop(),
-    receive {'DOWN', Ref, process, _, _} -> ok end,
-    ?assert(undefined == process_info(Pid)),
-    ?assertEqual(undefined, whereis(pc_supersup)),
-    ok = pc_supersup:stop().
+    sup_tests_common:test_start_stop(pc_supersup).
 
 should_not_start_with_invalid_callback_module_test() ->
     pc_supersup:start_link(),
@@ -75,15 +67,7 @@ start_eg_worker_test() ->
 
 test_start_worker(WorkerMod, WorkerCallback) ->
     {ok, Pid} = pc_supersup:start_link(),
-    Expected0 = [{specs, 1},
-                 {active, 0},
-                 {supervisors, 0},
-                 {workers, 0}],
-    ?assertEqual(Expected0, supervisor:count_children(Pid)),
+    sup_tests_common:expect_one_spec_none_active(Pid),
     {ok, _WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
-    Expected1 = [{specs, 1},
-                 {active, 1},
-                 {supervisors, 1},
-                 {workers, 0}],
-    ?assertEqual(Expected1, supervisor:count_children(Pid)),
+    sup_tests_common:expect_one_active_supervisor(Pid),
     pc_supersup:stop().

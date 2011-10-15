@@ -40,43 +40,39 @@
 %%
 %% @end
 
--module(epa_sup_tests).
+-module(sup_tests_common).
 
 -include_lib("eunit/include/eunit.hrl").
 
-start_stop_test() ->
-    sup_tests_common:test_start_stop(epa_sup).
+-export([test_start_stop/1]).
+-export([expect_one_spec_none_active/1]).
+-export([expect_one_active_supervisor/1]).
+-export([expect_one_active_worker/1]).
+-export([expect_supervisor_children/3]).
 
-should_start_children_test() ->
-    {ok, Pid} = epa_sup:start_link(),
-    Expected = [{specs, 3},
-                {active, 3},
-                {supervisors, 2},
-                {workers, 1}],
-    ?assertEqual(Expected, supervisor:count_children(Pid)),
-    epa_sup:stop().
+test_start_stop(Mod) ->
+    {ok, Pid} = Mod:start_link(),
+    ?assert(is_process_alive(Pid)),
+    ?assertMatch(Pid when is_pid(Pid), whereis(Mod)),
+    Ref = monitor(process, Pid),
+    ok = Mod:stop(),
+    receive {'DOWN', Ref, process, _, _} -> ok end,
+    ?assert(undefined == process_info(Pid)),
+    ?assertEqual(undefined, whereis(Mod)),
+    ok = Mod:stop().
 
-should_stop_children_on_stop_test() ->
-    {ok, Pid} = epa_sup:start_link(),
-    Children = supervisor:which_children(Pid),
-    epa_sup:stop(),
-    ?assert(lists:all(fun({_,CPid,_,_}) -> undefined == process_info(CPid) end,
-                      Children)).
+expect_one_spec_none_active(SupervisorPid) ->
+    expect_supervisor_children(SupervisorPid, _Supervisors = 0, _Workers = 0).
 
-should_get_application_env_test() ->
-    meck:new(application, [unstick, passthrough]),
-    {ok, _Pid} = epa_sup:start_link(),
-    ?assert(meck:called(application, get_all_env, [])),
-    meck:unload(application),
-    epa_sup:stop().
+expect_one_active_worker(SupervisorPid) ->
+    expect_supervisor_children(SupervisorPid, _Supervisors = 0, _Workers = 1).
 
-should_pass_application_config_to_epa_master_test() ->
-    meck:new(application, [unstick, passthrough]),
-    meck:new(epa_master, [passthrough]),
-    Config = [{topology, []}],
-    meck:expect(application, get_all_env, 0, Config),
-    {ok, _Pid} = epa_sup:start_link(),
-    ?assert(meck:called(epa_master, start_link, [Config])),
-    meck:unload(application),
-    meck:unload(epa_master),
-    epa_sup:stop().
+expect_one_active_supervisor(SupervisorPid) ->
+    expect_supervisor_children(SupervisorPid, _Supervisors = 1, _Workers = 0).
+
+expect_supervisor_children(SupervisorPid, Supervisors, Workers) ->
+    Expected0 = [{specs, 1},
+                 {active, Supervisors + Workers},
+                 {supervisors, Supervisors},
+                 {workers, Workers}],
+    ?assertEqual(Expected0, supervisor:count_children(SupervisorPid)).
