@@ -91,7 +91,7 @@ t_register_name([Pid | _]) ->
 
 t_start_workers([Pid, WorkerSup | _]) ->
     ?assertEqual(ok, epc:start_workers(Pid, 2)),
-    ?assertMatch([_, _], supervisor:which_children(WorkerSup)).
+    ?assertEqual(2, length(supervisor:which_children(WorkerSup))).
 
 t_start_workers_with_same_config([Pid, _WorkerSup, WorkerMod, MockModule|_]) ->
     WorkerConfig = [make_ref()],
@@ -105,21 +105,20 @@ t_pass_worker_config_to_worker_on_restart(
     ok = epc:start_workers(Pid, 1, WorkerConfig),
     [Worker] = get_workers(WorkerSup),
     sync_exit(Worker),
-    ?assertEqual(0, meck:num_calls(WorkerMod, start_link,
-                                   [MockModule, [], []])),
+    ?assertNot(meck:called(WorkerMod, start_link, [MockModule, [], []])),
     ?assertEqual(2, meck:num_calls(WorkerMod, start_link,
                                    [MockModule, WorkerConfig, []])).
 
 t_should_not_allow_start_workers_once([Pid, WorkerSup | _ ]) ->
     ok = epc:start_workers(Pid, 1),
     ?assertEqual({error, already_started}, epc:start_workers(Pid, 1)),
-    ?assertMatch([_], get_workers(WorkerSup)).
+    assert_workers(WorkerSup, 1).
 
 t_restart_worker_when_it_crash([Pid, WorkerSup | _]) ->
     ok = epc:start_workers(Pid, 1),
     [Worker] = get_workers(WorkerSup),
     sync_exit(Worker),
-    ?assertMatch([_], get_workers(WorkerSup)).
+    assert_workers(WorkerSup, 1).
 
 t_restarted_worker_should_keep_its_place([Pid, WorkerSup | _]) ->
     ok = epc:start_workers(Pid, 2),
@@ -131,8 +130,7 @@ t_restarted_worker_should_keep_its_place([Pid, WorkerSup | _]) ->
     [FirstWorker | _ ] = OrderedWorkers = order_workers(Workers, Msg1),
     assert_workers_process_function_is_called(OrderedWorkers, [1, 0], Msg1),
     sync_exit(FirstWorker),
-    Workers2 = get_workers(WorkerSup),
-    [NewWorker] = Workers2 -- Workers,
+    NewWorker = get_new_worker_pid(WorkerSup, Workers),
     OrderedWorkers2 = replace(OrderedWorkers, FirstWorker, NewWorker),
     keyhash_cast_and_assert(Pid, Msg1, OrderedWorkers2, [1, 0]),
     keyhash_cast_and_assert(Pid, Msg2, OrderedWorkers2, [0, 1]),
@@ -181,12 +179,7 @@ t_keyhash_cast([Pid, WorkerSup | _]) ->
     ok.
 
 t_keyhash_cast_error([Pid | _]) ->
-    Msg1 = foo,
-    Msg2 = {},
-    ?assertEqual({error, {not_a_valid_message, Msg1}},
-                 epc:keyhash_cast(Pid, Msg1)),
-    ?assertEqual({error, {not_a_valid_message, Msg2}},
-                 epc:keyhash_cast(Pid, Msg2)).
+    assert_invalid_messages(Pid, keyhash_cast).
 
 t_enable_dynamic_workers([Pid, _WorkerSup | _]) ->
     ?assertEqual(ok, epc:enable_dynamic_workers(Pid)),
@@ -204,7 +197,7 @@ t_start_dynamic_worker_when_doing_first_keycast([Pid, WorkerSup | _]) ->
     ok = epc:enable_dynamic_workers(Pid),
     epc:dynamic_cast(Pid, {key1, data1}),
     epc:sync(Pid),
-    ?assertEqual(1, length(get_workers(WorkerSup))).
+    assert_workers(WorkerSup, 1).
 
 t_start_dynamic_worker_should_set_targets(
   [Pid, _WorkerSup, WorkerMod, MockModule | _]) ->
@@ -236,7 +229,7 @@ t_same_key_as_already_started_should_not_start_new_worker(
     epc:dynamic_cast(Pid, Msg1),
     epc:dynamic_cast(Pid, Msg2),
     epc:sync(Pid),
-    ?assertMatch([_], get_workers(WorkerSup)),
+    assert_workers(WorkerSup, 1),
     [WorkerPid] = get_workers(WorkerSup),
     ?assertEqual(2, meck:num_calls(WorkerMod, process, [WorkerPid, Msg1])),
     ?assertEqual(1, meck:num_calls(WorkerMod, process, [WorkerPid, Msg2])).
@@ -266,10 +259,8 @@ t_dynamic_workers_should_be_restarted_if_they_crash(
     Workers = [WorkerPid1, WorkerPid2] = get_workers(WorkerSup),
     sync_exit(WorkerPid1),
     ?assertEqual(3, meck:num_calls(WorkerMod, start_link, '_')),
-
-    ?assertEqual(2, length(get_workers(WorkerSup))),
-    Workers2 = get_workers(WorkerSup),
-    [NewWorker] = Workers2 -- Workers,
+    assert_workers(WorkerSup, 2),
+    NewWorker = get_new_worker_pid(WorkerSup, Workers),
     epc:dynamic_cast(Pid, Msg1),
     epc:sync(Pid),
 
@@ -283,40 +274,21 @@ t_dynamic_workers_should_be_restarted_if_they_crash(
 
 t_dynamic_cast_messages_must_be_a_tuple_with_a_key([Pid | _]) ->
     ok = epc:enable_dynamic_workers(Pid),
-    Msg1 = foo,
-    Msg2 = {},
-    ?assertEqual({error, {not_a_valid_message, Msg1}}, epc:dynamic_cast(Pid, Msg1)),
-    ?assertEqual({error, {not_a_valid_message, Msg2}}, epc:dynamic_cast(Pid, Msg2)).
+    assert_invalid_messages(Pid, dynamic_cast).
 
 t_dynamic_should_handle_random_cast([Pid, _WorkerSup, WorkerMod | _]) ->
-    ok = epc:enable_dynamic_workers(Pid),
-    Msg = {key1, data1},
-    epc:dynamic_cast(Pid, Msg), % Create a worker
-    epc:random_cast(Pid, Msg),
-    epc:sync(Pid),
-    ?assertEqual(2, meck:num_calls(WorkerMod, process, '_')).
+    assert_cast_after_dynamic_cast(Pid, random_cast, WorkerMod, _ExpectCalls = 2).
 
 t_dynamic_should_handle_multicast([Pid, _WorkerSup, WorkerMod | _]) ->
-    ok = epc:enable_dynamic_workers(Pid),
-    Msg = {key1, data1},
-    epc:dynamic_cast(Pid, Msg), % Create a worker
-    epc:multicast(Pid, Msg),
-    epc:sync(Pid),
-    ?assertEqual(2, meck:num_calls(WorkerMod, process, '_')).
+    assert_cast_after_dynamic_cast(Pid, multicast, WorkerMod, _ExpectCalls = 2).
 
 t_dynamic_should_not_handle_keyhash_cast([Pid, _WorkerSup, WorkerMod | _]) ->
-    ok = epc:enable_dynamic_workers(Pid),
-    Msg = {key1, data1},
-    epc:dynamic_cast(Pid, Msg), % Create a worker
-    epc:keyhash_cast(Pid, Msg),
-    epc:sync(Pid),
-    ?assertEqual(1, meck:num_calls(WorkerMod, process, '_')).
+    assert_cast_after_dynamic_cast(Pid, keyhash_cast, WorkerMod, _ExpectCalls = 1).
 
 t_non_dynamic_should_not_handle_unique([Pid, WorkerSup, WorkerMod | _ ]) ->
     epc:dynamic_cast(Pid, {key1, data1}),
-    ?assertMatch([], get_workers(WorkerSup)),
-    ?assertEqual(0, meck:num_calls(WorkerMod, process, '_')).
-
+    assert_workers(WorkerSup, 0),
+    ?assertNot(meck:called(WorkerMod, process, '_')).
 
 % TODO: should set callbackArgs in dynamically started workers
 
@@ -383,6 +355,26 @@ assert_workers_random_and_process(Workers, ExpectedList, Msg) ->
                    random, uniform, [NumberOfWorkers])),
     assert_workers_process_function_is_called(Workers, ExpectedList, Msg).
 
+assert_cast_after_dynamic_cast(Pid, CastFunc, WorkerMod, ExpectedProcessCalls) ->
+    ok = epc:enable_dynamic_workers(Pid),
+    Msg = {key1, data1},
+    epc:dynamic_cast(Pid, Msg), % Create a worker
+    epc:CastFunc(Pid, Msg),
+    epc:sync(Pid),
+    ?assertEqual(ExpectedProcessCalls, meck:num_calls(WorkerMod, process, '_')).
+
+assert_workers(WorkerSup, ExpectedWorkers) ->
+     ?assertEqual(ExpectedWorkers, length(get_workers(WorkerSup))).
+
+assert_invalid_messages(Pid, Func) ->
+    Msg1 = foo,
+    Msg2 = {},
+    assert_invalid_message(Pid, Func, Msg1),
+    assert_invalid_message(Pid, Func, Msg2).
+
+assert_invalid_message(Pid, Func, Msg) ->
+     ?assertEqual({error, {not_a_valid_message, Msg}}, epc:Func(Pid, Msg)).
+
 % Setup/teardown functions
 % TODO: make WorkerMod into a parameter
 setup() ->
@@ -444,3 +436,7 @@ sync_exit(Pid) ->
     receive {'DOWN', Ref, process, _, _} -> ok end,
     timer:sleep(50). %% TODO: Find a way to get rid of this sleep.
 
+get_new_worker_pid(WorkerSup, OldWorkers) ->
+    NewWorkers = get_workers(WorkerSup),
+    [NewWorker] = NewWorkers -- OldWorkers,
+    NewWorker.
