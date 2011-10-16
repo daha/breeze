@@ -60,6 +60,8 @@
 -export([start_link/1]).
 -export([stop/0]).
 
+-export([set_and_start_configuration/1]).
+
 -export([get_controller/1]).
 
 -export([get_worker_mode_by_type/1]).
@@ -94,6 +96,14 @@ start_link(Config) when is_list(Config) ->
 stop() ->
     gen_server:call(?SERVER, stop).
 
+set_and_start_configuration(Config) when is_list(Config) ->
+    case config_validator:check_config(Config) of
+        ok ->
+	    gen_server:call(?SERVER, {set_and_start_config, Config});
+        Error ->
+            Error
+    end.
+
 get_controller(Name) when is_atom(Name) ->
     gen_server:call(?SERVER, {get_controller, Name}).
 
@@ -119,9 +129,7 @@ get_worker_mode_by_type(consumer) ->
 %% @end
 %%--------------------------------------------------------------------
 init([Config]) ->
-    Topology = proplists:get_value(topology, Config, []),
-    WorkerConfigs = proplists:get_value(worker_config, Config, []),
-    ControllerList = i_start_topology(Topology, WorkerConfigs),
+    ControllerList = i_start(Config),
     {ok, #state{controller_list = ControllerList}}.
 
 %%--------------------------------------------------------------------
@@ -138,13 +146,19 @@ init([Config]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(stop, _From, State) ->
-    {stop, normal, ok, State};
 handle_call({get_controller, Name}, _From, State) ->
     Result = i_get_controller(Name, State#state.controller_list),
     {reply, Result, State};
-handle_call(_Request, _From, State) ->
-    {reply, error, State}.
+handle_call({set_and_start_config, Config}, _From,
+	    State = #state{controller_list = []}) ->
+    ControllerList = i_start(Config),
+    {reply, ok, State#state{controller_list = ControllerList}};
+handle_call({set_and_start_config, _Config}, _From, State) ->
+    {reply, {error, already_have_a_configuration}, State};
+handle_call(stop, _From, State) ->
+    {stop, normal, ok, State};
+handle_call(Request, _From, State) ->
+    {reply, {error, {invalid_request, Request}}, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -200,6 +214,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+i_start(Config) ->
+    Topology = proplists:get_value(topology, Config, []),
+    WorkerConfigs = proplists:get_value(worker_config, Config, []),
+    i_start_topology(Topology, WorkerConfigs).
+
 i_start_topology(Topology, WorkerConfigs) ->
     {ok, ControllerList} = i_start_all_epc(Topology),
     i_connect_epcs_by_type(consumer, Topology, ControllerList),
@@ -227,7 +246,7 @@ i_start_all_epc_by_type(WorkerType,
 i_start_all_epc_by_type(WorkerType, [_| Rest], Acc) ->
     i_start_all_epc_by_type(WorkerType, Rest, Acc);
 i_start_all_epc_by_type(_WorkerType, [], Acc) ->
-    {ok , lists:reverse(Acc)}.
+    {ok, lists:reverse(Acc)}.
 
 i_start_epc(Name, WorkerType, WorkerCallback) ->
     WorkerMod = get_worker_mode_by_type(WorkerType),

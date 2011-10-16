@@ -44,6 +44,8 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+% TODO: start using foreach/setup/teardown
+
 start_stop_test() ->
     {ok, Pid} = epa_master:start_link([]),
     ?assertNot(undefined == process_info(Pid)),
@@ -61,9 +63,9 @@ read_simple_config_and_start_epc_producer_test() ->
     test_read_simple_config_and_start_epc(producer), ok.
 
 test_read_simple_config_and_start_epc(WorkerType) ->
-    test_read_simple_config_and_start_epc(WorkerType,
-                                          worker_mod(WorkerType),
-                                          callback_mod(WorkerType)).
+    test_read_simple_config_and_start_epc(
+      WorkerType, epa_master:get_worker_mode_by_type(WorkerType),
+      callback_mod(WorkerType)).
 
 test_read_simple_config_and_start_epc(WorkerType, WorkerMod, WorkerCallback) ->
     {WorkerSup, [EpcPid|_]} = mock(),
@@ -81,6 +83,54 @@ test_read_simple_config_and_start_epc(WorkerType, WorkerMod, WorkerCallback) ->
     ?assertNot(meck:called(epc, set_targets, [EpcPid, []])),
     ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers, []])),
     teardown().
+
+% TODO: code duplication
+set_and_start_configuration_test() ->
+    {WorkerSup, [EpcPid|_]} = mock(),
+    NumberOfWorkers = 2,
+    Name = dummy,
+    Config0 = [],
+    WorkerType = consumer,
+    WorkerCallback = callback_mod(WorkerType),
+    WorkerMod = epa_master:get_worker_mode_by_type(WorkerType),
+    Config1 = append_worker(Config0, Name, WorkerType, WorkerCallback,
+                            NumberOfWorkers),
+
+    {ok, _Pid} = epa_master:start_link([]),
+    ?assertEqual(ok, epa_master:set_and_start_configuration(Config1)),
+    ?assert(meck:called(pc_supersup, start_worker_sup,
+                        [WorkerMod, WorkerCallback])),
+    ?assert(meck:called(epc_sup, start_epc, [Name, WorkerMod, WorkerSup])),
+    ?assertNot(meck:called(epc, set_targets, [EpcPid, []])),
+    ?assert(meck:called(epc, start_workers, [EpcPid, NumberOfWorkers, []])),
+    teardown().
+
+should_not_set_configuration_with_a_configuration_test() ->
+    mock(),
+    NumberOfWorkers = 2,
+    Name = dummy,
+    Config0 = [],
+    WorkerType = consumer,
+    WorkerCallback = callback_mod(WorkerType),
+    Config1 = append_worker(Config0, Name, WorkerType, WorkerCallback,
+                            NumberOfWorkers),
+
+    {ok, _Pid} = epa_master:start_link(Config1),
+
+    ?assertEqual({error, already_have_a_configuration},
+		 epa_master:set_and_start_configuration(Config1)),
+    teardown().
+
+should_check_configuration_before_set_test() ->
+    {ok, _Pid} = epa_master:start_link([]),
+    meck:new(config_validator),
+    Error = {error, some_error},
+    meck:expect(config_validator, check_config, 1, Error),
+    Config = [{topology, [foo]}],
+    ?assertEqual(Error, epa_master:set_and_start_configuration(Config)),
+    ?assert(meck:called(config_validator, check_config, [Config])),
+    meck:unload(config_validator),
+    epa_master:stop().
 
 consumers_should_be_started_before_producers_test() ->
     {WorkerSup, [EpcPid1, EpcPid2, EpcPid3|_]} = mock(),
@@ -108,16 +158,6 @@ consumers_should_be_started_before_producers_test() ->
     ?assertEqual(ExpectedEpcHistory, EpcHistory),
     teardown().
 
-worker_mod(producer) ->
-    eg;
-worker_mod(consumer) ->
-    epw.
-
-callback_mod(producer) ->
-    eg_dummy;
-callback_mod(consumer) ->
-    epw_dummy.
-
 read_config_with_two_connected_epcs_test() ->
     {WorkerSup, [EpcPid1, EpcPid2 | _]} = mock(),
     SenderCallback = sender_callback,
@@ -126,7 +166,7 @@ read_config_with_two_connected_epcs_test() ->
     SenderWorkers = 2,
     ReceiverWorkers = 3,
     WorkerType = consumer,
-    WorkerMod = worker_mod(WorkerType),
+    WorkerMod = epa_master:get_worker_mode_by_type(WorkerType),
     mock_callbacks(Callbacks),
     Config0 = [],
     Config1 = append_worker(Config0, sender, WorkerType, SenderCallback,
@@ -181,7 +221,8 @@ read_config_with_two_epcs_with_worker_config_test() ->
     ReceiverWorkers = 2,
     Config0 = [],
     Config1 = append_worker(Config0, sender, producer, eg_dummy, SenderWorkers),
-    Config2 = append_worker(Config1, receiver, consumer, epw_dummy, ReceiverWorkers),
+    Config2 = append_worker(Config1, receiver, consumer, epw_dummy,
+			    ReceiverWorkers),
     Config3 = append_worker_config(Config2, sender, SenderConfig),
     Config4 = append_worker_config(Config3, receiver, ReceiverConfig),
 
@@ -213,7 +254,8 @@ should_not_crash_on_random_data_to_gen_server_callbacks_test() ->
     RandomData = {make_ref(), now(), foo, [self()]},
     gen_server:cast(Pid, RandomData),
     Pid ! RandomData,
-    gen_server:call(Pid, RandomData),
+    ?assertEqual({error, {invalid_request, RandomData}},
+		 gen_server:call(Pid, RandomData)),
     epa_master:stop().
 
 should_check_topology_test() ->
@@ -284,3 +326,8 @@ append_worker_config(Config, WorkerName, DistType) ->
 
 merge(PropList1, PropList2) ->
     lists:keymerge(1, lists:keysort(1, PropList1), lists:keysort(1, PropList2)).
+
+callback_mod(producer) ->
+    eg_dummy;
+callback_mod(consumer) ->
+    epw_dummy.
