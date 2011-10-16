@@ -1,10 +1,13 @@
 NEW:
 
 HIGH:
+* Create one or two sample apps
 * move worker config to the start of the epc (to work with dynamic workers)
+  * should set callbackArgs in dynamically started workers
 * Add new epc:s dynamically, to allow for a process monitoring a
   directory for new files, then start a new producer for each new file
   created in that directory. (more work to handle epw than eg)
+  * Dynamically add/remove targets in a epc
 * Make it possible to stop epc:s dynamically
 * write simple epw:s that do useful work
 * handle the simple_one_for_one workers (they do not die in sync with its sup)
@@ -26,7 +29,6 @@ MEDIUM:
 * remove WorkerMod from epc and make the WorkerMods into behavior or at least
   force then to handle sync events, but what about the casting?
 * Garbage collect dynamic workers (with empty state)?
-* Dynamically add/remove targets in a epc
 
 LOW:
 * Route messages in epc to workers for
