@@ -49,7 +49,7 @@
 -define(EPC_NAME, epc_name).
 
 tests_with_mock_test_() ->
-    {foreach, fun ?MODULE:setup/0, fun teardown/1,
+    {foreach, fun setup/0, fun teardown/1,
      [{with, [T]} ||
       T <- [fun ?MODULE:t_start_stop/1,
             fun ?MODULE:t_register_name/1,
