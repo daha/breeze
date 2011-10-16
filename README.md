@@ -34,7 +34,7 @@ Diagram over the processes:
            +-+         +-+
                        1|
                         |
-                       N|  
+                       N|
                        +-+
                        | | <- epw
                        +-+
