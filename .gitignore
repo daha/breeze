@@ -8,3 +8,4 @@ deps/
 doc/
 erl_crash.dump
 za
+rel/emp
