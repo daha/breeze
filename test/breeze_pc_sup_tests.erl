@@ -40,54 +40,54 @@
 %%
 %% @end
 
--module(pc_sup_tests).
+-module(breeze_pc_sup_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
-% use epw as a worker
+% use breeze_epw as a worker
 epw_start_stop_test() ->
-    test_start_stop(epw, epw_dummy), ok.
+    test_start_stop(breeze_epw, epw_dummy), ok.
 
 epw_start_workers_test() ->
-    test_start_workers(epw, epw_dummy), ok.
+    test_start_workers(breeze_epw, epw_dummy), ok.
 
 epw_fail_to_start_worker_test() ->
-    test_fail_to_start_worker(epw, epw_dummy), ok.
+    test_fail_to_start_worker(breeze_epw, epw_dummy), ok.
 
 epw_workers_should_be_temporary_test() ->
-    test_workers_should_be_temporary(epw, epw_dummy), ok.
+    test_workers_should_be_temporary(breeze_epw, epw_dummy), ok.
 
 epw_should_pass_configuration_to_worker_test() ->
-    test_should_pass_configuration_to_worker(epw, epw_dummy), ok.
+    test_should_pass_configuration_to_worker(breeze_epw, epw_dummy), ok.
 
-% use eg as a worker
+% use breeze_eg as a worker
 eg_start_stop_test() ->
-    test_start_stop(eg, eg_dummy), ok.
+    test_start_stop(breeze_eg, eg_dummy), ok.
 
 eg_start_workers_test() ->
-    test_start_workers(eg, eg_dummy), ok.
+    test_start_workers(breeze_eg, eg_dummy), ok.
 
 eg_fail_to_start_worker_test() ->
-    test_fail_to_start_worker(eg, eg_dummy), ok.
+    test_fail_to_start_worker(breeze_eg, eg_dummy), ok.
 
 eg_workers_should_be_temporary_test() ->
-    test_workers_should_be_temporary(eg, eg_dummy), ok.
+    test_workers_should_be_temporary(breeze_eg, eg_dummy), ok.
 
 eg_should_pass_configuration_to_worker_test() ->
-    test_should_pass_configuration_to_worker(eg, eg_dummy), ok.
+    test_should_pass_configuration_to_worker(breeze_eg, eg_dummy), ok.
 
 %% Common tests
 test_start_stop(WorkerMod, CallbackModule) ->
-    {ok, Pid} = pc_sup:start_link(WorkerMod, CallbackModule),
+    {ok, Pid} = breeze_pc_sup:start_link(WorkerMod, CallbackModule),
     ?assert(is_process_alive(Pid)),
     sup_tests_common:expect_one_spec_none_active(Pid),
-    ok = pc_sup:stop(Pid),
-    ok = pc_sup:stop(Pid).
+    ok = breeze_pc_sup:stop(Pid),
+    ok = breeze_pc_sup:stop(Pid).
 
 test_start_workers(WorkerMod, CallbackModule) ->
     Pid = start(WorkerMod, CallbackModule),
     ?assertMatch({ok, [_Pid1, _Pid2]},
-                 pc_sup:start_workers(Pid, 2)),
+                 breeze_pc_sup:start_workers(Pid, 2)),
     ?assert(meck:called(WorkerMod, start_link, [CallbackModule, [], []])),
     sup_tests_common:expect_supervisor_children(Pid, _Sups = 0, _Workers = 2),
     stop(Pid, WorkerMod).
@@ -97,19 +97,19 @@ test_should_pass_configuration_to_worker(WorkerMod, CallbackModule) ->
     WorkerOpts = [make_ref()],
     Opts = [make_ref()],
     {ok, [_ChildPid]} =
-        pc_sup:start_workers(Pid, 1, WorkerOpts, Opts),
+        breeze_pc_sup:start_workers(Pid, 1, WorkerOpts, Opts),
     ?assert(meck:called(WorkerMod, start_link,
                         [CallbackModule, WorkerOpts, Opts])),
     stop(Pid, WorkerMod).
 
 test_fail_to_start_worker(WorkerMod, _CallbackModule) ->
     Pid = start(WorkerMod, invalid_module),
-    ?assertMatch({error, _Reason}, pc_sup:start_workers(Pid, 1)),
+    ?assertMatch({error, _Reason}, breeze_pc_sup:start_workers(Pid, 1)),
     stop(Pid, WorkerMod).
 
 test_workers_should_be_temporary(WorkerMod, CallbackModule) ->
     Pid = start(WorkerMod, CallbackModule),
-    {ok, [ChildPid1, _ChildPid2]} = pc_sup:start_workers(Pid, 2),
+    {ok, [ChildPid1, _ChildPid2]} = breeze_pc_sup:start_workers(Pid, 2),
     Ref = monitor(process, ChildPid1),
     exit(ChildPid1, abnormal),
     receive {'DOWN', Ref, process, ChildPid1, _Info} -> ok end,
@@ -118,10 +118,10 @@ test_workers_should_be_temporary(WorkerMod, CallbackModule) ->
 
 %% Internal functions
 start(WorkerMod, CallbackModule) ->
-    {ok, Pid} = pc_sup:start_link(WorkerMod, CallbackModule),
+    {ok, Pid} = breeze_pc_sup:start_link(WorkerMod, CallbackModule),
     meck:new(WorkerMod, [passthrough]),
     Pid.
 
 stop(Pid, WorkerMod) ->
-   pc_sup:stop(Pid),
+   breeze_pc_sup:stop(Pid),
    meck:unload(WorkerMod).

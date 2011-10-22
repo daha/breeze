@@ -37,20 +37,19 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% Event processing worker
+%%
 %% @end
+%% TODO: merge this module with breeze_epw
 
--module(epw).
+-module(breeze_eg).
 
 -behaviour(gen_server).
 
 %% API
--export([behaviour_info/1]).
 -export([start_link/3]).
 -export([stop/1]).
--export([process/2]).
 -export([sync/1]).
-
+-export([behaviour_info/1]).
 -export([validate_module/1]).
 
 %% gen_server callbacks
@@ -60,35 +59,34 @@
 -record(state, {
                 callback,
                 callback_state,
-                targets
+                targets,
+                timeout
                }).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-behaviour_info(callbacks) ->
-    [{init, 1},
-     {process, 3},
-     {terminate, 2}];
-behaviour_info(_Other) ->
-    undefined.
 
 %%--------------------------------------------------------------------
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(Callback, CallbackArgs, Args)
-%%           -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(Callback, CallbackArgs, Args) ->
+%%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
 start_link(Callback, CallbackArgs, Args) ->
     gen_server:start_link(?MODULE, [Callback, CallbackArgs, Args], []).
 
-stop(Pid) ->
-    gen_server:call(Pid, stop).
+stop(Server) ->
+    gen_server:call(Server, stop).
 
-process(Pid, Msg) ->
-    gen_server:cast(Pid, {msg, Msg}).
+behaviour_info(callbacks) ->
+    [{init, 1},
+     {generate, 2},
+     {terminate, 2}];
+behaviour_info(_Other) ->
+    undefined.
 
 validate_module(Module) ->
     try Exports = Module:module_info(exports),
@@ -119,9 +117,15 @@ sync(Pid) ->
 init([Callback, CallbackArgs, Args]) ->
     Targets = proplists:get_value(targets, Args, []),
     {ok, CallbackState} = Callback:init(CallbackArgs),
-    {ok, #state{callback=Callback,
-                callback_state = CallbackState,
-                targets = Targets}}.
+    Timeout = case Targets of
+                  [] -> infinity;
+                  _ -> 0
+              end,
+    State = #state{callback = Callback,
+                   callback_state = CallbackState,
+                   targets = Targets,
+                   timeout = Timeout},
+    {ok, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -138,13 +142,13 @@ init([Callback, CallbackArgs, Args]) ->
 %% @end
 %%--------------------------------------------------------------------
 handle_call(sync, _From, State) ->
-    {reply, ok, State};
+    {reply, ok, State, State#state.timeout};
 handle_call(stop, _From, State) ->
     Callback = State#state.callback,
     CallbackState = Callback:terminate(normal, State#state.callback_state),
     {stop, normal, {ok, CallbackState}, State};
-handle_call(_Request, _From, State) ->
-    {reply, error, State}.
+handle_call(Request, _From, State) ->
+    {reply, {error, {invalid_request, Request}}, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -156,14 +160,8 @@ handle_call(_Request, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast({msg, Msg}, State) ->
-    Callback = State#state.callback,
-    {ok, CallbackState} = Callback:process(Msg,
-                                           i_make_emit_fun(State#state.targets),
-                                           State#state.callback_state),
-    {noreply, State#state{callback_state = CallbackState}};
 handle_cast(_Msg, State) ->
-    {noreply, State}.
+    {noreply, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -175,8 +173,14 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_info(_Msg, State) ->
-    {noreply, State}.
+handle_info(timeout, State) ->
+    Callback = State#state.callback,
+    EmitFun = i_make_emit_fun(State#state.targets),
+    {ok, CallbackState} = Callback:generate(EmitFun,
+                                            State#state.callback_state),
+    {noreply, State#state{callback_state = CallbackState}, State#state.timeout};
+handle_info(_Info, State) ->
+    {noreply, State, State#state.timeout}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -209,12 +213,12 @@ code_change(_OldVsn, State, _Extra) ->
 i_make_emit_fun(Targets) ->
     fun(Msg) -> lists:foreach(
                   fun({Pid, all}) ->
-                          epc:multicast(Pid, Msg);
+                          breeze_epc:multicast(Pid, Msg);
                      ({Pid, random}) ->
-                          epc:random_cast(Pid, Msg);
+                          breeze_epc:random_cast(Pid, Msg);
                      ({Pid, keyhash}) ->
-                          epc:keyhash_cast(Pid, Msg);
+                          breeze_epc:keyhash_cast(Pid, Msg);
                      ({Pid, dynamic}) ->
-                          epc:dynamic_cast(Pid, Msg)
+                          breeze_epc:dynamic_cast(Pid, Msg)
                   end, Targets)
     end.

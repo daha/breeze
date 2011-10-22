@@ -103,8 +103,8 @@ stop() ->
 %%--------------------------------------------------------------------
 init([]) ->
     Config = application:get_all_env(),
-    ChildSpecs = [?CHILD(epc_sup, supervisor, infinity),
-                  ?CHILD(pc_supersup, supervisor, infinity),
+    ChildSpecs = [?CHILD(breeze_epc_sup, supervisor, infinity),
+                  ?CHILD(breeze_pc_supersup, supervisor, infinity),
                   ?CHILD(breeze_master, [Config], worker, 5000)],
     {ok, { {one_for_all, 0, 1}, ChildSpecs} }.
 

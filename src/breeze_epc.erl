@@ -41,7 +41,7 @@
 %% to them.
 %% @end
 
--module(epc).
+-module(breeze_epc).
 
 -behaviour(gen_server).
 
@@ -82,7 +82,7 @@
 %% @doc
 %% Starts the server
 %%
-%% @spec start_link(Name, WorkerMod, WorkerSup) -> 
+%% @spec start_link(Name, WorkerMod, WorkerSup) ->
 %%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
@@ -197,13 +197,13 @@ handle_cast({msg, unique, Msg}, State0 = #state{dynamic = true}) ->
     {noreply, State1};
 handle_cast({msg, _DistType, _Msg}, State = #state{workers = []}) ->
     {noreply, State};
-handle_cast({msg, all, Msg}, State = #state{worker_mod = epw}) ->
+handle_cast({msg, all, Msg}, State = #state{worker_mod = breeze_epw}) ->
     i_multicast(State#state.workers, Msg),
     {noreply, State};
-handle_cast({msg, random, Msg}, State = #state{worker_mod = epw}) ->
+handle_cast({msg, random, Msg}, State = #state{worker_mod = breeze_epw}) ->
     i_random_cast(State#state.workers, Msg),
     {noreply, State};
-handle_cast({msg, keyhash, Msg}, State = #state{worker_mod = epw,
+handle_cast({msg, keyhash, Msg}, State = #state{worker_mod = breeze_epw,
                                                 dynamic = false}) ->
     i_keyhash_cast(State#state.workers, Msg),
     {noreply, State};
@@ -258,18 +258,18 @@ i_sync(WorkerMod, Workers) ->
     lists:foreach(fun({Pid, _, _}) -> ok = WorkerMod:sync(Pid) end, Workers).
 
 i_multicast(Workers, Msg) ->
-    lists:foreach(fun({Pid, _, _}) -> epw:process(Pid, Msg) end, Workers).
+    lists:foreach(fun({Pid,_,_}) -> breeze_epw:process(Pid, Msg) end, Workers).
 
 i_random_cast(Workers, Msg) ->
     RandInt = random:uniform(length(Workers)),
     {WorkerPid, _, _} = lists:nth(RandInt, Workers),
-    epw:process(WorkerPid, Msg).
+    breeze_epw:process(WorkerPid, Msg).
 
 i_keyhash_cast(Workers, Msg) ->
     Key = element(1, Msg),
     Hash = erlang:phash2(Key, length(Workers)) + 1,
     {WorkerPid, _, _} = lists:nth(Hash, Workers),
-    epw:process(WorkerPid, Msg).
+    breeze_epw:process(WorkerPid, Msg).
 
 i_dynamic_cast(Msg, State0) ->
     Key = element(1, Msg),
@@ -280,7 +280,7 @@ i_dynamic_cast(Msg, State0) ->
             false ->
                 i_dynamically_start_worker(Key, State0)
         end,
-    epw:process(WorkerPid, Msg),
+    breeze_epw:process(WorkerPid, Msg),
     State1.
 
 i_dynamically_start_worker(Key, State) ->
@@ -306,7 +306,7 @@ i_start_workers(State, NumberOfWorkers, WorkerConfig) ->
                     WorkerConfig, i_make_options(State)).
 
 i_start_workers(SupPid, NumberOfWorkers, WorkerConfig, Options) ->
-    {ok, Workers} = pc_sup:start_workers(SupPid, NumberOfWorkers,
+    {ok, Workers} = breeze_pc_sup:start_workers(SupPid, NumberOfWorkers,
                                          WorkerConfig, Options),
     i_monitor_workers(Workers).
 

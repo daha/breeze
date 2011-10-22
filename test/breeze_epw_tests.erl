@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(epw_tests).
+-module(breeze_epw_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -50,7 +50,7 @@
 
 % Exported functions
 tested_module() ->
-    epw.
+    breeze_epw.
 
 create_mock() ->
     Mock = epw_mock,
@@ -91,9 +91,9 @@ verify_emitted_message_is_keyhash_casted_to_all_targets_test() ->
 verify_emitted_message_is_dynamically_casted_to_all_targets_test() ->
     verify_emitted_message_is_sent_to_all_targets(dynamic_cast, dynamic), ok.
 
-verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
+verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistKey) ->
     Msg = {foo, bar},
-    EmitTriggerFun = fun(Pid) -> epw:process(Pid, Msg) end,
+    EmitTriggerFun = fun(Pid) -> breeze_epw:process(Pid, Msg) end,
     EmitTriggerMock =
         fun(Mock) ->
                 meck:expect(Mock, process,
@@ -103,4 +103,4 @@ verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistributionKey) ->
                             end)
         end,
     pc_tests_common:verify_emitted_message_is_sent_to_all_targets(
-      ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey).
+      ?MODULE, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistKey).

@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(config_validator).
+-module(breeze_config_validator).
 
 %% API
 -export([check_config/1]).

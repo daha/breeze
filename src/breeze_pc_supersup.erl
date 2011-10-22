@@ -37,17 +37,17 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% Supervisor for epc - event processing controller
+%%
 %% @end
 
--module(epc_sup).
+-module(breeze_pc_supersup).
 
 -behaviour(supervisor).
 
 %% API
 -export([start_link/0]).
+-export([start_worker_sup/2]).
 -export([stop/0]).
--export([start_epc/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -68,6 +68,14 @@
 start_link() ->
     supervisor:start_link({local, ?SERVER}, ?MODULE, []).
 
+start_worker_sup(WorkerMod, WorkerCallback) ->
+    case WorkerMod:validate_module(WorkerCallback) of
+        true ->
+            supervisor:start_child(?SERVER, [WorkerMod, WorkerCallback]);
+        false ->
+            {error, {invalid_callback_module, WorkerCallback}}
+    end.
+
 stop() ->
     case whereis(?SERVER) of
         undefined ->
@@ -78,9 +86,6 @@ stop() ->
 	    receive {'DOWN', Ref, process, Pid, _} -> ok end
     end,
     ok.
-
-start_epc(Name, WorkerMod, WorkerSup) ->
-    supervisor:start_child(?SERVER, [Name, WorkerMod, WorkerSup]).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -100,11 +105,10 @@ start_epc(Name, WorkerMod, WorkerSup) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    ChildSpec = {controller,
-                 {epc, start_link, []},
-                 transient, 10000, worker, [epc]},
+    ChildSpec = {worker_sup, {breeze_pc_sup, start_link, []},
+                 transient, infinity, supervisor, [pc_sup]},
     {ok, {{simple_one_for_one, 0, 1}, [ChildSpec]}}.
 
-%% ====================================================================
-%% Internal functions
-%% ====================================================================
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================

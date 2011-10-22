@@ -41,7 +41,7 @@
 %%
 %% @end
 %%
-%% @type worker_type() = WorkerType:: epw.
+%% @type worker_type() = WorkerType:: breeze_epw.
 %%
 %% @type distribution_type() = DistributionType:: all | random | keyhash.
 %%
@@ -86,7 +86,7 @@
 %% @end
 %%--------------------------------------------------------------------
 start_link(Config) when is_list(Config) ->
-    case config_validator:check_config(Config) of
+    case breeze_config_validator:check_config(Config) of
         ok ->
             gen_server:start_link({local, ?SERVER}, ?MODULE, [Config], []);
         Error ->
@@ -97,7 +97,7 @@ stop() ->
     gen_server:call(?SERVER, stop).
 
 set_and_start_configuration(Config) when is_list(Config) ->
-    case config_validator:check_config(Config) of
+    case breeze_config_validator:check_config(Config) of
         ok ->
 	    gen_server:call(?SERVER, {set_and_start_config, Config});
         Error ->
@@ -109,9 +109,9 @@ get_controller(Name) when is_atom(Name) ->
 
 % TODO: find a better module for these functions
 get_worker_mode_by_type(producer) ->
-    eg;
+    breeze_eg;
 get_worker_mode_by_type(consumer) ->
-    epw.
+    breeze_epw.
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -250,8 +250,9 @@ i_start_all_epc_by_type(_WorkerType, [], Acc) ->
 
 i_start_epc(Name, WorkerType, WorkerCallback) ->
     WorkerMod = get_worker_mode_by_type(WorkerType),
-    {ok, WorkerSup} = pc_supersup:start_worker_sup(WorkerMod, WorkerCallback),
-    epc_sup:start_epc(Name, WorkerMod, WorkerSup).
+    {ok, WorkerSup} = breeze_pc_supersup:start_worker_sup(
+			WorkerMod, WorkerCallback),
+    breeze_epc_sup:start_epc(Name, WorkerMod, WorkerSup).
 
 % i_connect_epcs_by_type/3
 i_connect_epcs_by_type(WorkerType,
@@ -273,22 +274,22 @@ i_connect_epcs_to_targets(Pid, NamedTargets, ControllerList) ->
                            NamePid = proplists:get_value(Name, ControllerList),
                            {NamePid, Type}
                    end, NamedTargets),
-    epc:set_targets(Pid, Targets).
+    breeze_epc:set_targets(Pid, Targets).
 
 % i_start_workers_by_type/3
 i_start_workers_by_type(WorkerType, [{Name, WorkerType, _Cb, dynamic, _T} |
-                                         Rest], ControllerList, WorkerConfigs) ->
+				     Rest], ControllerList, WorkerConfigs) ->
     Pid = proplists:get_value(Name, ControllerList),
-    epc:enable_dynamic_workers(Pid),
+    breeze_epc:enable_dynamic_workers(Pid),
     i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
 i_start_workers_by_type(WorkerType,
 			[{Name, WorkerType, _Cb, NumberOfWorkers, _Targets} |
 			 Rest], ControllerList, WorkerConfigs) ->
     Pid = proplists:get_value(Name, ControllerList),
     WorkerConfig = proplists:get_value(Name, WorkerConfigs, []),
-    epc:start_workers(Pid, NumberOfWorkers, WorkerConfig),
+    breeze_epc:start_workers(Pid, NumberOfWorkers, WorkerConfig),
     i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
-i_start_workers_by_type(WorkerType, [_ | Rest], ControllerList, WorkerConfigs) ->
+i_start_workers_by_type(WorkerType, [_| Rest], ControllerList, WorkerConfigs) ->
     i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
 i_start_workers_by_type(_WorkerType, [], _ControllerList, _WorkerConfigs) ->
     ok.

@@ -40,23 +40,23 @@
 %%
 %% @end
 
--module(epc_sup_tests).
+-module(breeze_epc_sup_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 start_stop_test() ->
-    sup_tests_common:test_start_stop(epc_sup).
+    sup_tests_common:test_start_stop(breeze_epc_sup).
 
 start_epc_epw_test() ->
-    test_start_epc(epw_worker, epw, epw_dummy).
+    test_start_epc(epw_worker, breeze_epw, epw_dummy).
 
 start_epc_eg_test() ->
-    test_start_epc(eg_worker, eg, eg_dummy).
+    test_start_epc(eg_worker, breeze_eg, eg_dummy).
 
 test_start_epc(Name, WorkerMod, WorkerCallback) ->
-    {ok, Pid} = epc_sup:start_link(),
+    {ok, Pid} = breeze_epc_sup:start_link(),
     sup_tests_common:expect_one_spec_none_active(Pid),
-    {ok, WorkerSup} = pc_sup:start_link(WorkerMod, WorkerCallback),
-    {ok, _EpcPid} = epc_sup:start_epc(Name, WorkerMod, WorkerSup),
+    {ok, WorkerSup} = breeze_pc_sup:start_link(WorkerMod, WorkerCallback),
+    {ok, _EpcPid} = breeze_epc_sup:start_epc(Name, WorkerMod, WorkerSup),
     sup_tests_common:expect_one_active_worker(Pid),
-    epc_sup:stop().
+    breeze_epc_sup:stop().

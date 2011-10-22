@@ -37,11 +37,11 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% A basic implementation of the epw behaviour
+%% A basic implementation of the breeze_epw behaviour
 %% @end
 
 -module(epw_dummy).
--behaviour(epw).
+-behaviour(breeze_epw).
 -export([init/1, process/3, terminate/2]).
 
 %% API Functions

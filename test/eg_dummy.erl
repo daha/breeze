@@ -41,7 +41,7 @@
 %% @end
 
 -module(eg_dummy).
--behaviour(eg).
+-behaviour(breeze_eg).
 
 -export([init/1, generate/2, terminate/2]).
 

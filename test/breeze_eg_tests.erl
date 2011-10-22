@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(eg_tests).
+-module(breeze_eg_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -52,7 +52,7 @@
 
 % Exported functions
 tested_module() ->
-    eg.
+    breeze_eg.
 
 create_mock() ->
     Mock = eg_mock,
@@ -120,15 +120,16 @@ should_have_timeout_after_init_([_Pid, Target, Msg | _]) ->
     verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_timeout_([Pid, Target, Msg | _]) ->
-    eg:sync(Pid),
-    PreCount = meck:num_calls(epc, multicast, [Target, Msg]),
+    breeze_eg:sync(Pid),
+    PreCount = meck:num_calls(breeze_epc, multicast, [Target, Msg]),
     timer:sleep(1), % enough time to make a number of calls
     % The counter must increase with more then one, since increase
     % with only one indicate no timeout after handling timeout.
-    ?assert((PreCount + 1) < meck:num_calls(epc, multicast, [Target, Msg])).
+    ?assert((PreCount + 1) < meck:num_calls(breeze_epc, multicast,
+					    [Target, Msg])).
 
 should_have_timeout_after_sync_([Pid, Target, Msg | _]) ->
-    eg:sync(Pid),
+    breeze_eg:sync(Pid),
     verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_handle_call_([Pid, Target, Msg | _]) ->
@@ -145,9 +146,9 @@ should_have_timeout_after_handle_info_([Pid, Target, Msg | _]) ->
 
 % Helper to the timeout tests
 verify_continuous_timeouts(Target, Msg) ->
-    PreCount = meck:num_calls(epc, multicast, [Target, Msg]),
+    PreCount = meck:num_calls(breeze_epc, multicast, [Target, Msg]),
     timer:sleep(1), % enough time to make a number of calls
-    ?assert(PreCount < meck:num_calls(epc, multicast, [Target, Msg])).
+    ?assert(PreCount < meck:num_calls(breeze_epc, multicast, [Target, Msg])).
 
 %% Internal functions
 make_emitting_generate_mock(Msg) ->
@@ -166,14 +167,14 @@ setup_timer_tests() ->
     EmitTriggerMock(Mock),
     Target = pc_tests_common:create_pid(),
     Targets = [{Target, all}],
-    meck:new(epc),
-    meck:expect(epc, multicast, 2, ok),
-    {ok, Pid} = eg:start_link(Mock, [], [{targets, Targets}]),
+    meck:new(breeze_epc),
+    meck:expect(breeze_epc, multicast, 2, ok),
+    {ok, Pid} = breeze_eg:start_link(Mock, [], [{targets, Targets}]),
     [Pid, Target, Msg, Mock].
 
 teardown_timer_tests([Pid, _Target, _Msg, Mock]) ->
-    eg:stop(Pid),
-    pc_tests_common:delete_mock(epc),
+    breeze_eg:stop(Pid),
+    pc_tests_common:delete_mock(breeze_epc),
     pc_tests_common:delete_mock(Mock),
     ok.
 

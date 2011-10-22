@@ -17,7 +17,7 @@ Diagram over the processes:
 1-N: one to many
 
                        +-+
-                       | | <- breeze_sup
+                       | | <- sup
                      1 +-+
                       / |1
                      /  |

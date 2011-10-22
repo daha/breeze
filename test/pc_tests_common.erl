@@ -95,9 +95,9 @@ common_mocked_tests() ->
      fun ?MODULE:should_not_crash_on_random_data_to_gen_server_callbacks_/1
     ].
 
-special_mocked_tests(epw_tests) ->
+special_mocked_tests(breeze_epw_tests) ->
     [fun ?MODULE:should_call_process_/1];
-special_mocked_tests(eg_tests) ->
+special_mocked_tests(breeze_eg_tests) ->
     [fun ?MODULE:should_not_call_generate_without_targets_/1].
 
 should_call_init_([_Mod, _Pid, Mock, StateRef]) ->
@@ -106,14 +106,14 @@ should_call_init_([_Mod, _Pid, Mock, StateRef]) ->
 should_handle_sync_([Mod, Pid | _]) ->
     ?assertEqual(ok, Mod:sync(Pid)).
 
-% epw_tests only
+% breeze_epw_tests only
 should_call_process_([Mod, Pid, Mock, StateRef]) ->
     MessageRef = make_ref(),
     ok = Mod:process(Pid, MessageRef),
     Mod:sync(Pid), % Sync with the process to make sure it has processed
     ?assertEqual(1, meck:num_calls(Mock, process, [MessageRef, '_', StateRef])).
 
-% eg_tests only
+% breeze_eg_tests only
 should_not_call_generate_without_targets_([_Mod, _Pid, Mock | _]) ->
     ?assertEqual(0, meck:num_calls(Mock, generate, ['_', '_'])).
 
@@ -124,23 +124,23 @@ should_not_crash_on_random_data_to_gen_server_callbacks_([_Mod, Pid|_]) ->
     gen_server:call(Pid, RandomData).
 
 verify_emitted_message_is_sent_to_all_targets(
-  TestMod, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistributionKey) ->
+  TestMod, EmitTriggerMock, EmitTriggerFun, Msg, EpcEmitFunc, DistKey) ->
     Mod = mod(TestMod),
     Mock = TestMod:create_mock(),
     EmitTriggerMock(Mock), % Mock the behaviour to execute the EmitFun
-    meck:new(epc),
-    meck:expect(epc, EpcEmitFunc, 2, ok),
+    meck:new(breeze_epc),
+    meck:expect(breeze_epc, EpcEmitFunc, 2, ok),
     AnotherPid = create_pid(),
-    Targets = [{self(), DistributionKey}, {AnotherPid, DistributionKey}],
+    Targets = [{self(), DistKey}, {AnotherPid, DistKey}],
     {ok, Pid} = Mod:start_link(Mock, [], [{targets, Targets}]),
     EmitTriggerFun(Pid),
     Mod:sync(Pid),
-    ?assert(meck:validate(epc)),
-    ?assert(meck:called(epc, EpcEmitFunc, [self(), Msg])),
-    ?assert(meck:called(epc, EpcEmitFunc, [AnotherPid, Msg])),
+    ?assert(meck:validate(breeze_epc)),
+    ?assert(meck:called(breeze_epc, EpcEmitFunc, [self(), Msg])),
+    ?assert(meck:called(breeze_epc, EpcEmitFunc, [AnotherPid, Msg])),
     Mod:stop(Pid),
     delete_mock(Mock),
-    meck:unload(epc).
+    meck:unload(breeze_epc).
 
 %%%===================================================================
 %%% utility functions
