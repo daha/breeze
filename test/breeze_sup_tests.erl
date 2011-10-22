@@ -40,43 +40,43 @@
 %%
 %% @end
 
--module(epa_sup_tests).
+-module(breeze_sup_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 start_stop_test() ->
-    sup_tests_common:test_start_stop(epa_sup).
+    sup_tests_common:test_start_stop(breeze_sup).
 
 should_start_children_test() ->
-    {ok, Pid} = epa_sup:start_link(),
+    {ok, Pid} = breeze_sup:start_link(),
     Expected = [{specs, 3},
                 {active, 3},
                 {supervisors, 2},
                 {workers, 1}],
     ?assertEqual(Expected, supervisor:count_children(Pid)),
-    epa_sup:stop().
+    breeze_sup:stop().
 
 should_stop_children_on_stop_test() ->
-    {ok, Pid} = epa_sup:start_link(),
+    {ok, Pid} = breeze_sup:start_link(),
     Children = supervisor:which_children(Pid),
-    epa_sup:stop(),
+    breeze_sup:stop(),
     ?assert(lists:all(fun({_,CPid,_,_}) -> undefined == process_info(CPid) end,
                       Children)).
 
 should_get_application_env_test() ->
     meck:new(application, [unstick, passthrough]),
-    {ok, _Pid} = epa_sup:start_link(),
+    {ok, _Pid} = breeze_sup:start_link(),
     ?assert(meck:called(application, get_all_env, [])),
     meck:unload(application),
-    epa_sup:stop().
+    breeze_sup:stop().
 
-should_pass_application_config_to_epa_master_test() ->
+should_pass_application_config_to_breeze_master_test() ->
     meck:new(application, [unstick, passthrough]),
-    meck:new(epa_master, [passthrough]),
+    meck:new(breeze_master, [passthrough]),
     Config = [{topology, []}],
     meck:expect(application, get_all_env, 0, Config),
-    {ok, _Pid} = epa_sup:start_link(),
-    ?assert(meck:called(epa_master, start_link, [Config])),
+    {ok, _Pid} = breeze_sup:start_link(),
+    ?assert(meck:called(breeze_master, start_link, [Config])),
     meck:unload(application),
-    meck:unload(epa_master),
-    epa_sup:stop().
+    meck:unload(breeze_master),
+    breeze_sup:stop().

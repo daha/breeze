@@ -50,11 +50,6 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
-%%--------------------------------------------------------------------
-%% @doc
-%% @spec
-%% @end
-%%--------------------------------------------------------------------
 check_config(Config) ->
     CheckFuns =
         [{topology,
@@ -217,7 +212,7 @@ i_check_topology_worker_types([]) ->
 
 % i_check_worker_callback_module/1
 i_check_worker_callback_module([{_, WorkerType, WorkerCallback,_,_} | Rest]) ->
-    WorkerMod = epa_master:get_worker_mode_by_type(WorkerType),
+    WorkerMod = breeze_master:get_worker_mode_by_type(WorkerType),
     case WorkerMod:validate_module(WorkerCallback) of
         true ->
             i_check_worker_callback_module(Rest);

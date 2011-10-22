@@ -40,13 +40,13 @@
 %%
 %% @end
 
--module(epa_tests).
+-module(breeze_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -compile(export_all).
 
--define(APP, epa).
+-define(APP, breeze).
 
 unload() ->
     application:unload(?APP).
@@ -62,9 +62,9 @@ start_stop_test_() ->
 
 t_start_app() ->
     ok = application:start(?APP),
-    ?assertNot(undefined == whereis(epa_sup)).
+    ?assertNot(undefined == whereis(breeze_sup)).
 
 t_stop_app() ->
     application:start(?APP),
     ok = application:stop(?APP),
-    ?assert(undefined == whereis(epa_sup)).
+    ?assert(undefined == whereis(breeze_sup)).

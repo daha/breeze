@@ -40,21 +40,21 @@
 %%
 %% @end
 
--module(epa_master_tests).
+-module(breeze_master_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
 -compile(export_all).
 
 start_stop_test() ->
-    {ok, Pid} = epa_master:start_link([]),
+    {ok, Pid} = breeze_master:start_link([]),
     ?assertNot(undefined == process_info(Pid)),
-    ?assertMatch(Pid when is_pid(Pid), whereis(epa_master)),
+    ?assertMatch(Pid when is_pid(Pid), whereis(breeze_master)),
     Ref = monitor(process, Pid),
-    ok = epa_master:stop(),
+    ok = breeze_master:stop(),
     receive {'DOWN', Ref, process, _, _} -> ok end,
     ?assert(undefined == process_info(Pid)),
-    ?assertEqual(undefined, whereis(epa_master)).
+    ?assertEqual(undefined, whereis(breeze_master)).
 
 should_check_topology_test() ->
     test_config_check(start_link).
@@ -77,7 +77,7 @@ tests_with_mock_test_() ->
 	   ]]}.
 
 t_should_not_crash_on_random_data(_) ->
-    {ok, Pid} = epa_master:start_link([]),
+    {ok, Pid} = breeze_master:start_link([]),
     RandomData = {make_ref(), now(), foo, [self()]},
     gen_server:cast(Pid, RandomData),
     Pid ! RandomData,
@@ -85,7 +85,7 @@ t_should_not_crash_on_random_data(_) ->
 		 gen_server:call(Pid, RandomData)).
 
 t_should_check_configuration_before_set(_) ->
-    {ok, _Pid} = epa_master:start_link([]),
+    {ok, _Pid} = breeze_master:start_link([]),
     test_config_check(set_and_start_configuration).
 
 t_read_simple_config_and_start_epc_consumer(Setup) ->
@@ -101,12 +101,12 @@ t_set_and_start_configuration({WorkerSup, [EpcPid|_]}) ->
     Config0 = [],
     WorkerType = consumer,
     WorkerCallback = callback_mod(WorkerType),
-    WorkerMod = epa_master:get_worker_mode_by_type(WorkerType),
+    WorkerMod = breeze_master:get_worker_mode_by_type(WorkerType),
     Config1 = append_worker(Config0, Name, WorkerType, WorkerCallback,
                             NumberOfWorkers),
 
-    {ok, _Pid} = epa_master:start_link([]),
-    ?assertEqual(ok, epa_master:set_and_start_configuration(Config1)),
+    {ok, _Pid} = breeze_master:start_link([]),
+    ?assertEqual(ok, breeze_master:set_and_start_configuration(Config1)),
     ?assert(meck:called(pc_supersup, start_worker_sup,
                         [WorkerMod, WorkerCallback])),
     ?assert(meck:called(epc_sup, start_epc, [Name, WorkerMod, WorkerSup])),
@@ -122,10 +122,10 @@ t_should_not_set_configuration_with_a_configuration(_) ->
     Config1 = append_worker(Config0, Name, WorkerType, WorkerCallback,
                             NumberOfWorkers),
 
-    {ok, _Pid} = epa_master:start_link(Config1),
+    {ok, _Pid} = breeze_master:start_link(Config1),
 
     ?assertEqual({error, already_have_a_configuration},
-		 epa_master:set_and_start_configuration(Config1)).
+		 breeze_master:set_and_start_configuration(Config1)).
 
 t_consumers_should_be_started_before_producers(
   {WorkerSup, [EpcPid1, EpcPid2, EpcPid3|_]}) ->
@@ -135,7 +135,7 @@ t_consumers_should_be_started_before_producers(
                             [{consumer1, all}, {consumer2, all}]),
     Config3 = append_worker(Config2, consumer2, consumer, epw_dummy, 2,
                             [{consumer1, all}]),
-    {ok, _Pid} = epa_master:start_link(Config3),
+    {ok, _Pid} = breeze_master:start_link(Config3),
     EpcSupHistory = clean_meck_history(meck:history(epc_sup)),
 
     ExpectedEpcSupHistory = [{epc_sup,start_epc,[consumer1,epw,WorkerSup]},
@@ -159,14 +159,14 @@ t_read_config_with_two_connected_epcs({WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
     SenderWorkers = 2,
     ReceiverWorkers = 3,
     WorkerType = consumer,
-    WorkerMod = epa_master:get_worker_mode_by_type(WorkerType),
+    WorkerMod = breeze_master:get_worker_mode_by_type(WorkerType),
     mock_callbacks(Callbacks),
     Config0 = [],
     Config1 = append_worker(Config0, sender, WorkerType, SenderCallback,
                             SenderWorkers, [{receiver, all}]),
     Config2 = append_worker(Config1, receiver, WorkerType, ReceiverCallback,
                             ReceiverWorkers),
-    {ok, _Pid} = epa_master:start_link(Config2),
+    {ok, _Pid} = breeze_master:start_link(Config2),
 
     ?assert(meck:called(pc_supersup, start_worker_sup,
                         [WorkerMod, SenderCallback])),
@@ -195,7 +195,7 @@ t_read_config_with_dynamic_worker({_WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
                             SenderWorkers, [{receiver, TargetType}]),
     Config2 = append_worker(Config1, receiver, WorkerType, ReceiverCallback,
                             ReceiverWorkers),
-    {ok, _Pid} = epa_master:start_link(Config2),
+    {ok, _Pid} = breeze_master:start_link(Config2),
 
     ?assert(meck:called(epc, set_targets, [EpcPid1, [{EpcPid2, TargetType}]])),
     ?assert(meck:called(epc, start_workers, [EpcPid1, SenderWorkers, []])),
@@ -216,7 +216,7 @@ t_read_config_with_two_epcs_with_worker_config(
     Config3 = append_worker_config(Config2, sender, SenderConfig),
     Config4 = append_worker_config(Config3, receiver, ReceiverConfig),
 
-    {ok, _Pid} = epa_master:start_link(Config4),
+    {ok, _Pid} = breeze_master:start_link(Config4),
     ?assertNot(meck:called(epc, start_workers, [EpcPid1, ReceiverWorkers, []])),
     ?assertNot(meck:called(epc, start_workers, [EpcPid2, SenderWorkers, []])),
 
@@ -231,10 +231,10 @@ t_get_epc_by_name({_WorkerSup, [EpcPid|_]}) ->
     Config0 = [],
     Config1 = append_worker(Config0, WorkerName, consumer, epw_dummy, 1),
 
-    {ok, _Pid} = epa_master:start_link(Config1),
+    {ok, _Pid} = breeze_master:start_link(Config1),
     ?assertEqual({error, {not_found, InvalidWorkerName}},
-                 epa_master:get_controller(InvalidWorkerName)),
-    ?assertEqual({ok, EpcPid}, epa_master:get_controller(WorkerName)).
+                 breeze_master:get_controller(InvalidWorkerName)),
+    ?assertEqual({ok, EpcPid}, breeze_master:get_controller(WorkerName)).
 
 % parameterised tests
 test_config_check(Func) ->
@@ -242,13 +242,13 @@ test_config_check(Func) ->
     Error = {error, some_error},
     meck:expect(config_validator, check_config, 1, Error),
     Config = [{topology, [foo]}],
-    ?assertEqual(Error, epa_master:Func(Config)),
+    ?assertEqual(Error, breeze_master:Func(Config)),
     ?assert(meck:called(config_validator, check_config, [Config])),
     meck:unload(config_validator).
 
 test_read_simple_config_and_start_epc(Setup, WorkerType) ->
     test_read_simple_config_and_start_epc(Setup,
-      WorkerType, epa_master:get_worker_mode_by_type(WorkerType),
+      WorkerType, breeze_master:get_worker_mode_by_type(WorkerType),
       callback_mod(WorkerType)).
 
 test_read_simple_config_and_start_epc({WorkerSup, [EpcPid|_]}, WorkerType,
@@ -259,7 +259,7 @@ test_read_simple_config_and_start_epc({WorkerSup, [EpcPid|_]}, WorkerType,
     Config1 = append_worker(Config0, Name, WorkerType, WorkerCallback,
                             NumberOfWorkers),
 
-    {ok, _Pid} = epa_master:start_link(Config1),
+    {ok, _Pid} = breeze_master:start_link(Config1),
 
     ?assert(meck:called(pc_supersup, start_worker_sup,
                         [WorkerMod, WorkerCallback])),
@@ -294,7 +294,7 @@ mock_epw_callback(CallbackModule) ->
 
 teardown(_) ->
     unload_mocks(),
-    epa_master:stop().
+    breeze_master:stop().
 
 unload_callbacks(Callbacks) ->
     lists:foreach(fun(Callback) -> meck:unload(Callback) end, Callbacks).

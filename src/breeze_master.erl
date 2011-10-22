@@ -52,7 +52,7 @@
 %%
 %%-------------------------------------------------------------------
 
--module(epa_master).
+-module(breeze_master).
 
 -behaviour(gen_server).
 

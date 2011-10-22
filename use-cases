@@ -17,7 +17,7 @@ startup
 2. The app sup starts:
    * One worker supervisor supervisor (pc_supersup)
    * One controller supervisor (epc_sup)
-   * epa master
+   * breeze master
 
 3. master is started
 -------------------------------

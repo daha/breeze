@@ -39,15 +39,15 @@ LOW:
 * catch errors from the epw behaviour implementations?
 * Extract the common code from the sup tests
 * flaky test:
-  * epa_master_tests: valid_topology_terget_ref_type_test...*failed*
+  * breeze_master_tests: valid_topology_terget_ref_type_test...*failed*
     ::error:{assertMatch_failed,
-              [{module,epa_master_tests},
+              [{module,breeze_master_tests},
                {line,163},
-               {expression,"epa_master : start_link ( ValidTargetRefType2 )"},
+               {expression,"breeze_master : start_link ( ValidTargetRefType2 )"},
                {expected,"{ ok , _Pid }"},
                {value,{error,{already_started,<0.875.0>}}}]}
-      in function epa_master_tests:'-valid_topology_terget_ref_type_test/0-fun-1-'/0
-      in call from epa_master_tests:valid_topology_terget_ref_type_test/0
+      in function breeze_master_tests:'-valid_topology_terget_ref_type_test/0-fun-1-'/0
+      in call from breeze_master_tests:valid_topology_terget_ref_type_test/0
 
   * epc_tests: t_dynamic_workers_should_be_restarted_if_they_crash...*failed*
     ::error:{assertEqual_failed,

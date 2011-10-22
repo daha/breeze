@@ -37,77 +37,52 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% Application supervisor
+%% A stream processing application
 %% @end
 
--module(epa_sup).
+-module(breeze_app).
 
--behaviour(supervisor).
+-behaviour(application).
 
-%% API
--export([start_link/0]).
--export([stop/0]).
-
-%% Supervisor callbacks
--export([init/1]).
-
--define(SERVER, ?MODULE).
-
-%% Helper macro for declaring children of supervisor
--define(CHILD(I, Type, Timeout),
-        {I, {I, start_link, []}, permanent, Timeout, Type, [I]}).
--define(CHILD(I, Args, Type, Timeout),
-        {I, {I, start_link, Args}, permanent, Timeout, Type, [I]}).
+%% Application callbacks
+-export([start/2, stop/1]).
 
 %% ===================================================================
-%% API functions
+%% Application callbacks
 %% ===================================================================
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Starts the supervisor
-%%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
-%% @end
-%%--------------------------------------------------------------------
-start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
-
-stop() ->
-    case whereis(?SERVER) of
-        undefined ->
-            ok;
-        Pid ->
-            Ref = monitor(process, Pid),
-            true = exit(Pid, normal),
-            receive {'DOWN', Ref, process, Pid, _} -> ok end
-    end,
-    ok.
-
-%%%===================================================================
-%%% Supervisor callbacks
-%%%===================================================================
 
 %%--------------------------------------------------------------------
 %% @private
 %% @doc
-%% Whenever a supervisor is started using supervisor:start_link/[2,3],
-%% this function is called by the new process to find out about
-%% restart strategy, maximum restart frequency and child
-%% specifications.
+%% This function is called whenever an application is started using
+%% application:start/[1,2], and should start the processes of the
+%% application. If the application is structured according to the OTP
+%% design principles as a supervision tree, this means starting the
+%% top supervisor of the tree.
 %%
-%% @spec init(Args) -> {ok, {SupFlags, [ChildSpec]}} |
-%%                     ignore |
-%%                     {error, Reason}
+%% @spec start(StartType, StartArgs) -> {ok, Pid} |
+%%                                      {ok, Pid, State} |
+%%                                      {error, Reason}
+%%      StartType = normal | {takeover, Node} | {failover, Node}
+%%      StartArgs = term()
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-    Config = application:get_all_env(),
-    ChildSpecs = [?CHILD(epc_sup, supervisor, infinity),
-                  ?CHILD(pc_supersup, supervisor, infinity),
-                  ?CHILD(epa_master, [Config], worker, 5000)],
-    {ok, { {one_for_all, 0, 1}, ChildSpecs} }.
+start(_StartType, _StartArgs) ->
+    breeze_sup:start_link().
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% This function is called whenever an application has stopped. It
+%% is intended to be the opposite of Module:start/2 and should do
+%% any necessary cleaning up. The return value is ignored.
+%%
+%% @spec stop(State) -> void()
+%% @end
+%%--------------------------------------------------------------------
+stop(_State) ->
+    ok.
+
+%% ====================================================================
+%% Internal functions
+%% ====================================================================

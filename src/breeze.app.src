@@ -1,0 +1,9 @@
+{application, breeze,
+ [
+  {description, "An stream processing application"},
+  {vsn, "0.1.0"},
+  {registered, [breeze_master, epc_sup, epw_supersup]},
+  {applications, [kernel, stdlib]},
+  {mod, { breeze_app, []}},
+  {env, []}
+ ]}.
