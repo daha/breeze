@@ -41,7 +41,7 @@
 %%
 %% @end
 %%
-%% @type worker_type() = producer | consumer
+%% @type worker_type() = generating_worker | processing_worker
 %%
 %% @type distribution_type() = DistributionType:: all | random | keyhash.
 %%
@@ -108,9 +108,9 @@ get_controller(Name) when is_atom(Name) ->
     gen_server:call(?SERVER, {get_controller, Name}).
 
 % TODO: find a better module for these functions
-get_worker_mode_by_type(producer) ->
+get_worker_mode_by_type(generating_worker) ->
     breeze_generating_worker;
-get_worker_mode_by_type(consumer) ->
+get_worker_mode_by_type(processing_worker) ->
     breeze_processing_worker.
 
 %%%===================================================================
@@ -221,20 +221,26 @@ i_start(Config) ->
 
 i_start_topology(Topology, WorkerConfigs) ->
     {ok, ControllerList} = i_start_all_worker_controllers(Topology),
-    i_connect_worker_controllers_by_type(consumer, Topology, ControllerList),
-    i_start_workers_by_type(consumer, Topology, ControllerList, WorkerConfigs),
+    i_connect_worker_controllers_by_type(processing_worker, Topology,
+					 ControllerList),
+    i_start_workers_by_type(processing_worker, Topology, ControllerList,
+			    WorkerConfigs),
 
-    i_connect_worker_controllers_by_type(producer, Topology, ControllerList),
-    i_start_workers_by_type(producer, Topology, ControllerList, WorkerConfigs),
+    i_connect_worker_controllers_by_type(generating_worker, Topology,
+					 ControllerList),
+    i_start_workers_by_type(generating_worker, Topology, ControllerList,
+			    WorkerConfigs),
     ControllerList.
 
 % i_start_all_worker_controller/1
 i_start_all_worker_controllers(Topology) ->
-    {ok, Consumers} = i_start_all_worker_controllers_by_type(consumer, Topology),
-    {ok, Producer} = i_start_all_worker_controllers_by_type(producer, Topology),
+    {ok, Consumers} = i_start_all_worker_controllers_by_type(processing_worker,
+							     Topology),
+    {ok, Producer} = i_start_all_worker_controllers_by_type(generating_worker,
+							    Topology),
     {ok, Consumers ++ Producer}.
 
-% i_start_all_consumer_worker_controller/1
+% i_start_all_processing_worker_worker_controller/1
 i_start_all_worker_controllers_by_type(WorkerType, Topology) ->
     i_start_all_worker_controllers_by_type(WorkerType, Topology,
 					  _ControllerList = []).

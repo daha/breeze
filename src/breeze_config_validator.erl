@@ -61,7 +61,7 @@ check_config(Config) ->
            fun i_check_keyhash_target_must_not_be_dynamic/1,
            fun i_check_topology_worker_types/1,
            fun i_check_worker_callback_module/1,
-           fun i_check_producer_as_consumer/1
+           fun i_check_generating_worker_as_processing_worker/1
           ]},
          {worker_config,
           [fun i_check_worker_config_syntax/1,
@@ -201,9 +201,9 @@ i_find_non_dynamic_worker_names(Topology) ->
       [], Topology).
 
 % i_check_topology_worker_types/1
-i_check_topology_worker_types([{_, producer, _, _, _} | Rest]) ->
+i_check_topology_worker_types([{_, generating_worker, _, _, _} | Rest]) ->
     i_check_topology_worker_types(Rest);
-i_check_topology_worker_types([{_, consumer, _, _, _} | Rest]) ->
+i_check_topology_worker_types([{_, processing_worker, _, _, _} | Rest]) ->
     i_check_topology_worker_types(Rest);
 i_check_topology_worker_types([{_, InvalidWorkerType, _, _, _} | _Rest]) ->
     {error, {invalid_worker_type, InvalidWorkerType}};
@@ -222,16 +222,16 @@ i_check_worker_callback_module([{_, WorkerType, WorkerCallback,_,_} | Rest]) ->
 i_check_worker_callback_module([]) ->
     ok.
 
-% i_check_producer_as_consumer/1
-i_check_producer_as_consumer(Topology) ->
-    ConsumerNames = i_find_consumer_names(Topology),
-    ErrorType = producer_as_consumer,
+% i_check_generating_worker_as_processing_worker/1
+i_check_generating_worker_as_processing_worker(Topology) ->
+    ConsumerNames = i_find_processing_worker_names(Topology),
+    ErrorType = generating_worker_as_processing_worker,
     i_check_all_targets_are_in_target_set(Topology, ConsumerNames, '_',
                                           ErrorType).
 
-i_find_consumer_names(Topology) ->
+i_find_processing_worker_names(Topology) ->
     lists:foldl(
-      fun({Name, consumer, _, _, _}, Acc) -> [Name | Acc];
+      fun({Name, processing_worker, _, _, _}, Acc) -> [Name | Acc];
          (_, Acc) -> Acc
       end, [], Topology).
 

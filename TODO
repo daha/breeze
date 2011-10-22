@@ -6,9 +6,9 @@ HIGH:
   with dynamic workers)
   * should set callbackArgs in dynamically started workers
 * Add new worker_controllers dynamically, to allow for a process
-  monitoring a directory for new files, then start a new producer for
-  each new file created in that directory. (more work to handle
-  processing_worker than generating_worker)
+  monitoring a directory for new files, then start a new
+  generating_worker for each new file created in that directory. (more
+  work to handle processing_worker than generating_worker)
   * Dynamically add/remove targets in a worker_controller
 * Make it possible to stop worker_controller:s dynamically
 * write simple processing_workers that do useful work
@@ -23,7 +23,8 @@ MEDIUM:
   for 1000s of workers
 * add possibility for worker to give ets table to worker_controller,
   requires the worker_controller to be passed as an argument in init
-* restrict the producers if the consumers can't cope with the load
+* restrict the generating_workers if the processing_workers can't cope
+  with the load
 * Add possibility to reset all the workers, to start fresh without
   restarting all
 * generalize processing_worker to another module to share code with
@@ -67,5 +68,7 @@ LOW:
       in function worker_controller_tests:'-t_dynamic_workers_should_be_restarted_if_they_crash/1-fun-1-'/3
       in call from worker_controller_tests:t_dynamic_workers_should_be_restarted_if_they_crash/1
 * Stub processing_worker_sup in worker_controller_tests
-* Make the processing_worker and generating_worker behaviour handle code_change
-* Give the worker the possibility to change the timeout? (at end of file?)
+* Make the processing_worker and generating_worker behaviour handle
+  code_change
+* Give the worker the possibility to change the timeout? (at end of
+  file?)

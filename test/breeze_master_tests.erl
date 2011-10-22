@@ -65,14 +65,14 @@ tests_with_mock_test_() ->
       T <- [
 	    fun ?MODULE:t_should_not_crash_on_random_data/1,
 	    fun ?MODULE:t_should_check_configuration_before_set/1,
-	    fun ?MODULE:t_read_simple_config_and_start_worker_controller_consumer/1,
-	    fun ?MODULE:t_read_simple_config_and_start_worker_controller_producer/1,
+	    fun ?MODULE:t_read_simple_config_and_start_worker_controller_p/1,
+	    fun ?MODULE:t_read_simple_config_and_start_worker_controller_g/1,
 	    fun ?MODULE:t_set_and_start_configuration/1,
 	    fun ?MODULE:t_should_not_set_configuration_with_a_configuration/1,
-	    fun ?MODULE:t_consumers_should_be_started_before_producers/1,
+	    fun ?MODULE:t_processing_workers_should_be_started_before/1,
 	    fun ?MODULE:t_read_config_with_two_connected_worker_controllers/1,
 	    fun ?MODULE:t_read_config_with_dynamic_worker/1,
-	    fun ?MODULE:t_read_config_with_two_worker_controllers_with_worker_config/1,
+	    fun ?MODULE:t_read_config_with_two_controllers_with_worker_config/1,
 	    fun ?MODULE:t_get_worker_controller_by_name/1
 	   ]]}.
 
@@ -88,18 +88,20 @@ t_should_check_configuration_before_set(_) ->
     {ok, _Pid} = breeze_master:start_link([]),
     test_config_check(set_and_start_configuration).
 
-t_read_simple_config_and_start_worker_controller_consumer(Setup) ->
-    test_read_simple_config_and_start_worker_controller(Setup, consumer).
+t_read_simple_config_and_start_worker_controller_p(Setup) ->
+    test_read_simple_config_and_start_worker_controller(
+      Setup, processing_worker).
 
-t_read_simple_config_and_start_worker_controller_producer(Setup) ->
-    test_read_simple_config_and_start_worker_controller(Setup, producer).
+t_read_simple_config_and_start_worker_controller_g(Setup) ->
+    test_read_simple_config_and_start_worker_controller(
+      Setup, generating_worker).
 
 % TODO: code duplication
 t_set_and_start_configuration({WorkerSup, [EpcPid|_]}) ->
     NumberOfWorkers = 2,
     Name = dummy,
     Config0 = [],
-    WorkerType = consumer,
+    WorkerType = processing_worker,
     WorkerCallback = callback_mod(WorkerType),
     WorkerMod = breeze_master:get_worker_mode_by_type(WorkerType),
     Config1 = append_worker(Config0, Name, WorkerType, WorkerCallback,
@@ -120,7 +122,7 @@ t_should_not_set_configuration_with_a_configuration(_) ->
     NumberOfWorkers = 2,
     Name = dummy,
     Config0 = [],
-    WorkerType = consumer,
+    WorkerType = processing_worker,
     WorkerCallback = callback_mod(WorkerType),
     Config1 = append_worker(Config0, Name, WorkerType, WorkerCallback,
                             NumberOfWorkers),
@@ -130,27 +132,27 @@ t_should_not_set_configuration_with_a_configuration(_) ->
     ?assertEqual({error, already_have_a_configuration},
 		 breeze_master:set_and_start_configuration(Config1)).
 
-t_consumers_should_be_started_before_producers(
+t_processing_workers_should_be_started_before(
   {WorkerSup, [EpcPid1, EpcPid2, EpcPid3|_]}) ->
     Config0 = [],
-    Config1 = append_worker(Config0, consumer1, consumer, pw_dummy, 3),
-    Config2 = append_worker(Config1, producer, producer, gw_dummy, 1,
-                            [{consumer1, all}, {consumer2, all}]),
-    Config3 = append_worker(Config2, consumer2, consumer, pw_dummy, 2,
-                            [{consumer1, all}]),
+    Config1 = append_worker(Config0, pw1, processing_worker, pw_dummy, 3),
+    Config2 = append_worker(Config1, gw, generating_worker, gw_dummy, 1,
+                            [{pw1, all}, {pw2, all}]),
+    Config3 = append_worker(Config2, pw2, processing_worker, pw_dummy, 2,
+                            [{pw1, all}]),
     {ok, _Pid} = breeze_master:start_link(Config3),
     EpcSupHistory = clean_meck_history(
 		      meck:history(breeze_worker_controller_sup)),
 
     ExpectedEpcSupHistory = [{breeze_worker_controller_sup,
 			      start_worker_controller,
-			      [consumer1,breeze_processing_worker,WorkerSup]},
+			      [pw1,breeze_processing_worker,WorkerSup]},
                              {breeze_worker_controller_sup,
 			      start_worker_controller,
-			      [consumer2,breeze_processing_worker,WorkerSup]},
+			      [pw2,breeze_processing_worker,WorkerSup]},
                              {breeze_worker_controller_sup,
 			      start_worker_controller,
-			      [producer,breeze_generating_worker,WorkerSup]}],
+			      [gw,breeze_generating_worker,WorkerSup]}],
     ?assertEqual(ExpectedEpcSupHistory, EpcSupHistory),
 
     EpcHistory = clean_meck_history(meck:history(breeze_worker_controller)),
@@ -161,7 +163,7 @@ t_consumers_should_be_started_before_producers(
                           {breeze_worker_controller, start_workers,
 			   [EpcPid2, 2, []]},
                           {breeze_worker_controller, set_targets,
-                           [EpcPid3,[{EpcPid1,all},{EpcPid2,all}]]},
+                           [EpcPid3, [{EpcPid1, all}, {EpcPid2, all}]]},
                           {breeze_worker_controller, start_workers,
 			   [EpcPid3, 1, []]}],
     ?assertEqual(ExpectedEpcHistory, EpcHistory).
@@ -173,7 +175,7 @@ t_read_config_with_two_connected_worker_controllers(
     Callbacks = [SenderCallback, ReceiverCallback],
     SenderWorkers = 2,
     ReceiverWorkers = 3,
-    WorkerType = consumer,
+    WorkerType = processing_worker,
     WorkerMod = breeze_master:get_worker_mode_by_type(WorkerType),
     mock_callbacks(Callbacks),
     Config0 = [],
@@ -207,7 +209,7 @@ t_read_config_with_dynamic_worker({_WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
     Callbacks = [SenderCallback, ReceiverCallback],
     SenderWorkers = 2,
     ReceiverWorkers = dynamic,
-    WorkerType = consumer,
+    WorkerType = processing_worker,
     TargetType = dynamic,
     mock_callbacks(Callbacks),
     Config0 = [],
@@ -227,15 +229,16 @@ t_read_config_with_dynamic_worker({_WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
 			[EpcPid2])),
     unload_callbacks(Callbacks).
 
-t_read_config_with_two_worker_controllers_with_worker_config(
+t_read_config_with_two_controllers_with_worker_config(
   {_WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
     SenderConfig = [sender_config],
     ReceiverConfig = [receiver_config],
     SenderWorkers = 1,
     ReceiverWorkers = 2,
     Config0 = [],
-    Config1 = append_worker(Config0, sender, producer, gw_dummy, SenderWorkers),
-    Config2 = append_worker(Config1, receiver, consumer, pw_dummy,
+    Config1 = append_worker(Config0, sender, generating_worker, gw_dummy,
+			    SenderWorkers),
+    Config2 = append_worker(Config1, receiver, processing_worker, pw_dummy,
 			    ReceiverWorkers),
     Config3 = append_worker_config(Config2, sender, SenderConfig),
     Config4 = append_worker_config(Config3, receiver, ReceiverConfig),
@@ -252,15 +255,14 @@ t_read_config_with_two_worker_controllers_with_worker_config(
                         [EpcPid2, SenderWorkers, SenderConfig])).
 
 t_get_worker_controller_by_name({_WorkerSup, [EpcPid|_]}) ->
-    WorkerName = dummy,
-    InvalidWorkerName = invalid_name,
+    Name = dummy,
+    InvalidName = invalid_name,
     Config0 = [],
-    Config1 = append_worker(Config0, WorkerName, consumer, pw_dummy, 1),
-
+    Config1 = append_worker(Config0, Name, processing_worker, pw_dummy, 1),
     {ok, _Pid} = breeze_master:start_link(Config1),
-    ?assertEqual({error, {not_found, InvalidWorkerName}},
-                 breeze_master:get_controller(InvalidWorkerName)),
-    ?assertEqual({ok, EpcPid}, breeze_master:get_controller(WorkerName)).
+    ?assertEqual({error, {not_found, InvalidName}},
+                 breeze_master:get_controller(InvalidName)),
+    ?assertEqual({ok, EpcPid}, breeze_master:get_controller(Name)).
 
 % parameterised tests
 test_config_check(Func) ->
@@ -359,7 +361,7 @@ append_worker_config(Config, WorkerName, DistType) ->
 merge(PropList1, PropList2) ->
     lists:keymerge(1, lists:keysort(1, PropList1), lists:keysort(1, PropList2)).
 
-callback_mod(producer) ->
+callback_mod(generating_worker) ->
     gw_dummy;
-callback_mod(consumer) ->
+callback_mod(processing_worker) ->
     pw_dummy.

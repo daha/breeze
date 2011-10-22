@@ -45,22 +45,23 @@
 -include_lib("eunit/include/eunit.hrl").
 
 valid_topology_test() ->
-    Topology1 = [{topology, [consumer_cb(name, 1)]}],
-    Topology2 = [{topology, [producer_db(name, 2)]}],
-    Topology3 = [{topology, [consumer_cb(name1, 3, [{name2, all}]),
-                             consumer_cb(name2, 4)]}],
-    Topology4 = [{topology, [consumer_cb(name1, 5, [{name2, random}]),
-                             consumer_cb(name2, 6)]}],
-    Topology5 = [{topology, [consumer_cb(name1, 7, [{name2, keyhash}]),
-                             consumer_cb(name2, 8)]}],
-    Topology6 = [{topology, [consumer_cb(name1, 9,
+    Topology1 = [{topology, [processing_worker_cb(name, 1)]}],
+    Topology2 = [{topology, [generating_worker_cb(name, 2)]}],
+    Topology3 = [{topology, [processing_worker_cb(name1, 3, [{name2, all}]),
+                             processing_worker_cb(name2, 4)]}],
+    Topology4 = [{topology, [processing_worker_cb(name1, 5, [{name2, random}]),
+                             processing_worker_cb(name2, 6)]}],
+    Topology5 = [{topology, [processing_worker_cb(name1, 7, [{name2, keyhash}]),
+                             processing_worker_cb(name2, 8)]}],
+    Topology6 = [{topology, [processing_worker_cb(name1, 9,
                                       [{name2, keyhash}, {name3, all}]),
-                             consumer_cb(name2, 10),
-                             consumer_cb(name3, 11)]}],
-    Topology7 = [{topology, [producer_db(name1, 12, [{name2, random}]),
-                             consumer_cb(name2, 13)]}],
-    Topology8 = [{topology, [producer_db(name1, 14, [{name2, dynamic}]),
-                             consumer_cb(name2, dynamic)]}],
+                             processing_worker_cb(name2, 10),
+                             processing_worker_cb(name3, 11)]}],
+    Topology7 = [{topology, [generating_worker_cb(name1, 12, [{name2, random}]),
+                             processing_worker_cb(name2, 13)]}],
+    Topology8 = [{topology, [generating_worker_cb(name1, 14,
+						  [{name2, dynamic}]),
+                             processing_worker_cb(name2, dynamic)]}],
     ?assertEqual(ok, breeze_config_validator:check_config(Topology1)),
     ?assertEqual(ok, breeze_config_validator:check_config(Topology2)),
     ?assertEqual(ok, breeze_config_validator:check_config(Topology3)),
@@ -73,44 +74,47 @@ valid_topology_test() ->
 
 invalid_topology_syntax_check_test() ->
     InvalidTopology1 = [{topology, [foo]}],
-    InvalidTopology2 = [{topology, [{foo, consumer, bar, 1}]}],
-    InvalidTopology3 = [{topology, [{foo, consumer, bar, 1, [], []}]}],
-    InvalidTopology4 = [{topology, [consumer(1, bar, 1, foo)]}],
+    InvalidTopology2 = [{topology, [{foo, processing_worker, bar, 1}]}],
+    InvalidTopology3 = [{topology, [{foo, processing_worker, bar, 1, [], []}]}],
+    InvalidTopology4 = [{topology, [processing_worker(1, bar, 1, foo)]}],
     InvalidTopology5 = [{topology, [worker(foo, 2, bar, 1, foo)]}],
-    InvalidTopology6 = [{topology, [consumer(foo, 3, 1, foo)]}],
-    InvalidTopology7 = [{topology, [consumer(foo, bar, baz)]}],
+    InvalidTopology6 = [{topology, [processing_worker(foo, 3, 1, foo)]}],
+    InvalidTopology7 = [{topology, [processing_worker(foo, bar, baz)]}],
 
     ?assertEqual({error, {invalid_topology_syntax, foo}},
                  breeze_config_validator:check_config(InvalidTopology1)),
     ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, 1}}},
+                          {foo, processing_worker, bar, 1}}},
                  breeze_config_validator:check_config(InvalidTopology2)),
     ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, 1, [], []}}},
+                          {foo, processing_worker, bar, 1, [], []}}},
                  breeze_config_validator:check_config(InvalidTopology3)),
     ?assertEqual({error, {invalid_topology_syntax,
-                          {1, consumer, bar, 1, foo}}},
+                          {1, processing_worker, bar, 1, foo}}},
                  breeze_config_validator:check_config(InvalidTopology4)),
     ?assertEqual({error, {invalid_topology_syntax,
                           {foo, 2, bar, 1, foo}}},
                  breeze_config_validator:check_config(InvalidTopology5)),
     ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, 3, 1, foo}}},
+                          {foo, processing_worker, 3, 1, foo}}},
                  breeze_config_validator:check_config(InvalidTopology6)),
     ?assertEqual({error, {invalid_topology_syntax,
-                          consumer(foo, bar, baz)}},
+                          processing_worker(foo, bar, baz)}},
                  breeze_config_validator:check_config(InvalidTopology7)).
 
 invalid_topology_target_syntax_check_test() ->
-    InvalidTopology1 = [{topology, [consumer(foo, bar, 1, foo)]}],
-    InvalidTopology2 = [{topology, [consumer(foo, bar, 1, [foo])]}],
-    InvalidTopology3 = [{topology, [consumer(foo, bar, 1, [{foo}])]}],
-    InvalidTopology4 = [{topology, [consumer(foo, bar, 1, [{foo, bar, baz}])]}],
-    InvalidTopology5 = [{topology, [consumer(foo, bar, 1, [{4, bar}])]}],
-    InvalidTopology6 = [{topology, [consumer(foo, bar, 1, [{foo, 5}])]}],
+    InvalidTopology1 = [{topology, [processing_worker(foo, bar, 1, foo)]}],
+    InvalidTopology2 = [{topology, [processing_worker(foo, bar, 1, [foo])]}],
+    InvalidTopology3 = [{topology, [processing_worker(foo, bar, 1, [{foo}])]}],
+    InvalidTopology4 = [{topology, [processing_worker(foo, bar, 1,
+						      [{foo, bar, baz}])]}],
+    InvalidTopology5 = [{topology, [processing_worker(foo, bar, 1,
+						      [{4, bar}])]}],
+    InvalidTopology6 = [{topology, [processing_worker(foo, bar, 1,
+						      [{foo, 5}])]}],
 
     ?assertEqual({error, {invalid_topology_syntax,
-                          {foo, consumer, bar, 1, foo}}},
+                          {foo, processing_worker, bar, 1, foo}}},
                  breeze_config_validator:check_config(InvalidTopology1)),
     ?assertEqual({error, {invalid_topology_target_syntax, foo}},
                  breeze_config_validator:check_config(InvalidTopology2)),
@@ -124,11 +128,12 @@ invalid_topology_target_syntax_check_test() ->
                  breeze_config_validator:check_config(InvalidTopology6)).
 
 invalid_topology_target_references_test() ->
-    InvalidTargetRef1 = [{topology, [consumer(name, bar, 1, [{name, all}])]}],
-    InvalidTargetRef2 = [{topology, [consumer(name, bar, 1,
+    InvalidTargetRef1 = [{topology, [processing_worker(name, bar, 1,
+						       [{name, all}])]}],
+    InvalidTargetRef2 = [{topology, [processing_worker(name, bar, 1,
                                       [{invalid_name, all}])]}],
-    InvalidTargetRef3 = [{topology, [consumer(name1, bar, 1),
-                                     consumer(name2, bar, 1,
+    InvalidTargetRef3 = [{topology, [processing_worker(name1, bar, 1),
+                                     processing_worker(name2, bar, 1,
                                               [{name1, all},
                                                {invalid_name, all}])]}],
     ?assertEqual({error, {invalid_target_ref, name}},
@@ -140,25 +145,25 @@ invalid_topology_target_references_test() ->
     ok.
 
 invalid_topology_target_ref_type_test() ->
-    InvalidTargetRefType = [{topology, [consumer(name1, bar, 1),
-                                        consumer(name2, bar, 1,
+    InvalidTargetRefType = [{topology, [processing_worker(name1, bar, 1),
+                                        processing_worker(name2, bar, 1,
                                                  [{name1, foo}])]}],
     ?assertEqual({error, {invalid_target_ref_type, foo}},
                  breeze_config_validator:check_config(InvalidTargetRefType)).
 
 valid_topology_target_ref_type_test() ->
     ValidTargetRefType1 =
-        [{topology, [consumer_cb(name1, 1),
-                     consumer_cb(name2, 1, [{name1, all}])]}],
+        [{topology, [processing_worker_cb(name1, 1),
+                     processing_worker_cb(name2, 1, [{name1, all}])]}],
     ValidTargetRefType2 =
-        [{topology, [consumer_cb(name1, 1),
-                     consumer_cb(name2, 1, [{name1, random}])]}],
+        [{topology, [processing_worker_cb(name1, 1),
+                     processing_worker_cb(name2, 1, [{name1, random}])]}],
     ValidTargetRefType3 =
-        [{topology, [consumer_cb(name1, 1),
-                     consumer_cb(name2, 1, [{name1, keyhash}])]}],
+        [{topology, [processing_worker_cb(name1, 1),
+                     processing_worker_cb(name2, 1, [{name1, keyhash}])]}],
     ValidTargetRefType4 =
-        [{topology, [producer_db(name1, 1, [{name2, keyhash}]),
-                     consumer_cb(name2, 1)]}],
+        [{topology, [generating_worker_cb(name1, 1, [{name2, keyhash}]),
+                     processing_worker_cb(name2, 1)]}],
     ?assertEqual(ok, breeze_config_validator:check_config(ValidTargetRefType1)),
     ?assertEqual(ok, breeze_config_validator:check_config(ValidTargetRefType2)),
     ?assertEqual(ok, breeze_config_validator:check_config(ValidTargetRefType3)),
@@ -166,8 +171,8 @@ valid_topology_target_ref_type_test() ->
     ok.
 
 invalid_topology_duplicated_worker_name_test() ->
-    DupName = [{topology, [consumer(name, bar, 1),
-                           consumer(name, bar, 1)]}],
+    DupName = [{topology, [processing_worker(name, bar, 1),
+                           processing_worker(name, bar, 1)]}],
     ?assertEqual({error, duplicated_worker_name},
                  breeze_config_validator:check_config(DupName)).
 
@@ -178,29 +183,29 @@ invalid_topology_worker_type_test() ->
 
 invalid_topology_worker_callback_module_test() ->
     InvalidCallback =
-        [{topology, [consumer(name, invalid_callback, 1)]}],
+        [{topology, [processing_worker(name, invalid_callback, 1)]}],
     ?assertEqual({error, {invalid_worker_callback_module, invalid_callback}},
                  breeze_config_validator:check_config(InvalidCallback)).
 
 dynamic_target_must_be_dynamic_test() ->
     NotDynamicWorker = [{topology,
-                         [consumer_cb(name1, 1, [{name2, dynamic}]),
-                          consumer_cb(name2, 1)]}],
+                         [processing_worker_cb(name1, 1, [{name2, dynamic}]),
+                          processing_worker_cb(name2, 1)]}],
     ?assertEqual({error, {dynamic_target_must_have_dynamic_workers, name2}},
                  breeze_config_validator:check_config(NotDynamicWorker)).
 
 keyhash_targets_must_not_be_dynamic_test() ->
     InvalidTopology = [{topology,
-                        [consumer_cb(name1, 1, [{name2, keyhash}]),
-                         consumer_cb(name2, dynamic)]}],
+                        [processing_worker_cb(name1, 1, [{name2, keyhash}]),
+                         processing_worker_cb(name2, dynamic)]}],
     ?assertEqual({error, {keyhash_targets_must_not_be_dynamic, name2}},
                  breeze_config_validator:check_config(InvalidTopology)).
 
-producers_is_not_allowed_as_consumers_test() ->
+generating_workers_is_not_allowed_as_processing_workers_test() ->
     ProducerAsConsumer = [{topology,
-                           [consumer_cb(name1, 1, [{name2, all}]),
-                            producer_db(name2, 1)]}],
-    ?assertEqual({error, {producer_as_consumer, name2}},
+                           [processing_worker_cb(name1, 1, [{name2, all}]),
+                            generating_worker_cb(name2, 1)]}],
+    ?assertEqual({error, {generating_worker_as_processing_worker, name2}},
                  breeze_config_validator:check_config(ProducerAsConsumer)).
 
 valid_worker_config_test() ->
@@ -225,26 +230,28 @@ invalid_worker_config_test() ->
     ?assertEqual({error, {invalid_worker_config, {foo, bar, baz}}},
                  breeze_config_validator:check_config(InvalidWorkerConfig3)).
 
-consumer_cb(Name, NumWorkers) ->
-    consumer_cb(Name, NumWorkers, _Targets = []).
+processing_worker_cb(Name, NumWorkers) ->
+    processing_worker_cb(Name, NumWorkers, _Targets = []).
 
-consumer_cb(Name, NumWorkers, Targets) ->
-    consumer(Name, _Callback = pw_dummy, NumWorkers, Targets).
+processing_worker_cb(Name, NumWorkers, Targets) ->
+    processing_worker(Name, _Callback = pw_dummy, NumWorkers, Targets).
 
-consumer(Name, Callback, NumWorkers) ->
-    consumer(Name, Callback, NumWorkers, _Targets = []).
+processing_worker(Name, Callback, NumWorkers) ->
+    processing_worker(Name, Callback, NumWorkers, _Targets = []).
 
-consumer(Name, Callback, NumWorkers, Targets) ->
-    worker(Name, _WorkerType = consumer, Callback, NumWorkers, Targets).
+processing_worker(Name, Callback, NumWorkers, Targets) ->
+    WorkerType = processing_worker,
+    worker(Name, WorkerType, Callback, NumWorkers, Targets).
 
-producer_db(Name, NumWorkers) ->
-    producer_db(Name, NumWorkers, _Targets = []).
+generating_worker_cb(Name, NumWorkers) ->
+    generating_worker_cb(Name, NumWorkers, _Targets = []).
 
-producer_db(Name, NumWorkers, Targets) ->
-    producer(Name, _Callback = gw_dummy, NumWorkers, Targets).
+generating_worker_cb(Name, NumWorkers, Targets) ->
+    generating_worker(Name, _Callback = gw_dummy, NumWorkers, Targets).
 
-producer(Name, Callback, NumWorkers, Targets) ->
-    worker(Name, _WorkerType = producer, Callback, NumWorkers, Targets).
+generating_worker(Name, Callback, NumWorkers, Targets) ->
+    WorkerType = generating_worker,
+    worker(Name, WorkerType, Callback, NumWorkers, Targets).
 
 worker(Name, WorkerType, Callback, NumWorkers, Targets) ->
     {Name, WorkerType, Callback, NumWorkers, Targets}.
