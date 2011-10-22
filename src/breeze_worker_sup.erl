@@ -37,22 +37,21 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% Supervisor for breeze_epc - event processing controller
+%% Supervisor for breeze_processing_worker and breeze_generating_worker
 %% @end
 
--module(breeze_epc_sup).
+-module(breeze_worker_sup).
 
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
--export([stop/0]).
--export([start_epc/3]).
+-export([start_link/2]).
+-export([stop/1]).
+-export([start_workers/2]).
+-export([start_workers/4]).
 
 %% Supervisor callbacks
 -export([init/1]).
-
--define(SERVER, ?MODULE).
 
 %%%===================================================================
 %%% API functions
@@ -62,25 +61,24 @@
 %% @doc
 %% Starts the supervisor
 %%
-%% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
+%% @spec start_link(WorkerBehaviour, Module) ->
+%%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    supervisor:start_link({local, ?SERVER}, ?MODULE, []).
+start_link(WorkerBehaviour, Module) ->
+    supervisor:start_link(?MODULE, [WorkerBehaviour, Module]).
 
-stop() ->
-    case whereis(?SERVER) of
-        undefined ->
-            ok;
-        Pid ->
-	    Ref = monitor(process, Pid),
-	    true = exit(Pid, normal),
-	    receive {'DOWN', Ref, process, Pid, _} -> ok end
-    end,
+stop(Pid) ->
+    Ref = monitor(process, Pid),
+    true = exit(Pid, normal),
+    receive {'DOWN', Ref, process, Pid, _} -> ok end,
     ok.
 
-start_epc(Name, WorkerMod, WorkerSup) ->
-    supervisor:start_child(?SERVER, [Name, WorkerMod, WorkerSup]).
+start_workers(Pid, NumberOfChildren) ->
+    start_workers(Pid, NumberOfChildren, _WorkerOpts = [], _Opts = []).
+
+start_workers(Pid, NumberOfChildren, WorkerOpts, Opts) ->
+    i_start_workers(Pid, NumberOfChildren, WorkerOpts, Opts, _Pids = []).
 
 %%%===================================================================
 %%% Supervisor callbacks
@@ -99,12 +97,24 @@ start_epc(Name, WorkerMod, WorkerSup) ->
 %%                     {error, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-    ChildSpec = {controller,
-                 {breeze_epc, start_link, []},
-                 transient, 10000, worker, [epc]},
-    {ok, {{simple_one_for_one, 0, 1}, [ChildSpec]}}.
+init([WorkerBehaviour, CallbackModule]) ->
+    ChildSpec = {worker, {WorkerBehaviour, start_link, [CallbackModule]},
+                 temporary, 5000, worker, [WorkerBehaviour, CallbackModule]},
+    {ok, {{simple_one_for_one, 100, 1}, [ChildSpec]}}.
 
-%% ====================================================================
-%% Internal functions
-%% ====================================================================
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+i_start_workers(_SupervisorPid, _NumberOfChildren = 0, _WOpts, _Opts, Pids) ->
+    {ok, Pids};
+i_start_workers(SupervisorPid, NumberOfChildren, WorkerOpts, Opts, Pids) ->
+    case i_start_child(SupervisorPid, WorkerOpts, Opts) of
+        {ok, Pid} ->
+            i_start_workers(SupervisorPid, NumberOfChildren-1, WorkerOpts, Opts,
+                            [Pid | Pids]);
+        {error, _} = Error ->
+            Error
+    end.
+
+i_start_child(SupervisorPid, WorkerOpts, Opts) ->
+    supervisor:start_child(SupervisorPid, [WorkerOpts, Opts]).

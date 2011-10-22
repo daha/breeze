@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(breeze_eg_tests).
+-module(breeze_generating_worker_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -52,10 +52,10 @@
 
 % Exported functions
 tested_module() ->
-    breeze_eg.
+    breeze_generating_worker.
 
 create_mock() ->
-    Mock = eg_mock,
+    Mock = generating_worker_mock,
     meck:new(Mock),
     meck:expect(Mock, init, fun(State) -> {ok, State} end),
     meck:expect(Mock, generate, fun(_EmitFun, State) -> {ok, State} end),
@@ -120,16 +120,18 @@ should_have_timeout_after_init_([_Pid, Target, Msg | _]) ->
     verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_timeout_([Pid, Target, Msg | _]) ->
-    breeze_eg:sync(Pid),
-    PreCount = meck:num_calls(breeze_epc, multicast, [Target, Msg]),
+    breeze_generating_worker:sync(Pid),
+    PreCount = meck:num_calls(breeze_worker_controller, multicast,
+			      [Target, Msg]),
     timer:sleep(1), % enough time to make a number of calls
     % The counter must increase with more then one, since increase
     % with only one indicate no timeout after handling timeout.
-    ?assert((PreCount + 1) < meck:num_calls(breeze_epc, multicast,
-					    [Target, Msg])).
+    ?assert((PreCount + 1) < meck:num_calls(
+			       breeze_worker_controller, multicast,
+			       [Target, Msg])).
 
 should_have_timeout_after_sync_([Pid, Target, Msg | _]) ->
-    breeze_eg:sync(Pid),
+    breeze_generating_worker:sync(Pid),
     verify_continuous_timeouts(Target, Msg), ok.
 
 should_have_timeout_after_handle_call_([Pid, Target, Msg | _]) ->
@@ -146,9 +148,11 @@ should_have_timeout_after_handle_info_([Pid, Target, Msg | _]) ->
 
 % Helper to the timeout tests
 verify_continuous_timeouts(Target, Msg) ->
-    PreCount = meck:num_calls(breeze_epc, multicast, [Target, Msg]),
+    PreCount = meck:num_calls(breeze_worker_controller, multicast,
+			      [Target, Msg]),
     timer:sleep(1), % enough time to make a number of calls
-    ?assert(PreCount < meck:num_calls(breeze_epc, multicast, [Target, Msg])).
+    ?assert(PreCount < meck:num_calls(breeze_worker_controller, multicast,
+				      [Target, Msg])).
 
 %% Internal functions
 make_emitting_generate_mock(Msg) ->
@@ -167,14 +171,15 @@ setup_timer_tests() ->
     EmitTriggerMock(Mock),
     Target = pc_tests_common:create_pid(),
     Targets = [{Target, all}],
-    meck:new(breeze_epc),
-    meck:expect(breeze_epc, multicast, 2, ok),
-    {ok, Pid} = breeze_eg:start_link(Mock, [], [{targets, Targets}]),
+    meck:new(breeze_worker_controller),
+    meck:expect(breeze_worker_controller, multicast, 2, ok),
+    {ok, Pid} = breeze_generating_worker:start_link(
+		  Mock, [], [{targets, Targets}]),
     [Pid, Target, Msg, Mock].
 
 teardown_timer_tests([Pid, _Target, _Msg, Mock]) ->
-    breeze_eg:stop(Pid),
-    pc_tests_common:delete_mock(breeze_epc),
+    breeze_generating_worker:stop(Pid),
+    pc_tests_common:delete_mock(breeze_worker_controller),
     pc_tests_common:delete_mock(Mock),
     ok.
 

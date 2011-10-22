@@ -6,9 +6,9 @@ startup
 1. The user creates a config file or sets the application configuration
 2. start app
 3. master is started by the app_sup
-4. the gen server starts all epc:s
-5. The epc:s is configured with information of where to send its output
-6. The master ask the epc:s to start their workers
+4. the gen server starts all wc:s
+5. The wc:s is configured with information of where to send its output
+6. The master ask the wc:s to start their workers
 7. The start application call returns when all i started?
 
 2. start app
@@ -16,20 +16,20 @@ startup
 1. App start the app_sup
 2. The app sup starts:
    * One worker supervisor supervisor (pc_supersup)
-   * One controller supervisor (epc_sup)
+   * One worker controller supervisor (wc_sup)
    * breeze master
 
 3. master is started
 -------------------------------
 
 
-4. The gen_server starts all epc:s
+4. The gen_server starts all wc:s
 ----------------------------------
 1. Start a worker supervisor with the worker callback as argument
 2. Start the controller with the started worker sup Pid
-Repeat for each epc
+Repeat for each wc
 
-5. The epc:s is configured with information of where to send its output
+5. The wc:s is configured with information of where to send its output
 -----------------------------------------------------------------------
 * with the targets
 ? with the number of workers?
@@ -42,7 +42,7 @@ initial start worker
 --------------------
 TO BE DONE
 
-how to configure the epc
+how to configure the wc
 ------------------------
 TO BE DONE
 
@@ -50,7 +50,7 @@ worker dies, how it restarts
 ----------------------------
 TO BE DONE
 
-one epc dies
+one wc dies
 ------------
 TO BE DONE
 

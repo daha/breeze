@@ -40,35 +40,26 @@
 %%
 %% @end
 
--module(breeze_pc_supersup_tests).
+-module(breeze_worker_controller_sup_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([]).
-
-
 start_stop_test() ->
-    sup_tests_common:test_start_stop(breeze_pc_supersup).
+    sup_tests_common:test_start_stop(breeze_worker_controller_sup).
 
-should_not_start_with_invalid_callback_module_test() ->
-    breeze_pc_supersup:start_link(),
-    WorkerMod = breeze_epw,
-    CallbackModule = invalid_callback_module,
-    ?assertEqual({error, {invalid_callback_module, CallbackModule}},
-        breeze_pc_supersup:start_worker_sup(WorkerMod, CallbackModule)),
-    breeze_pc_supersup:stop().
+start_worker_controller_processing_worker_test() ->
+    test_start_worker_controller(processing_worker_worker,
+				 breeze_processing_worker, pw_dummy).
 
+start_worker_controller_generating_worker_test() ->
+    test_start_worker_controller(generating_worker_worker,
+				 breeze_generating_worker, gw_dummy).
 
-start_epw_worker_test() ->
-    test_start_worker(breeze_epw, epw_dummy).
-
-start_eg_worker_test() ->
-    test_start_worker(breeze_eg, eg_dummy).
-
-test_start_worker(WorkerMod, WorkerCallback) ->
-    {ok, Pid} = breeze_pc_supersup:start_link(),
+test_start_worker_controller(Name, WorkerMod, WorkerCallback) ->
+    {ok, Pid} = breeze_worker_controller_sup:start_link(),
     sup_tests_common:expect_one_spec_none_active(Pid),
-    {ok, _WorkerSup} = breeze_pc_supersup:start_worker_sup(
-			 WorkerMod, WorkerCallback),
-    sup_tests_common:expect_one_active_supervisor(Pid),
-    breeze_pc_supersup:stop().
+    {ok, WorkerSup} = breeze_worker_sup:start_link(WorkerMod, WorkerCallback),
+    {ok, _EpcPid} = breeze_worker_controller_sup:start_worker_controller(
+		      Name, WorkerMod, WorkerSup),
+    sup_tests_common:expect_one_active_worker(Pid),
+    breeze_worker_controller_sup:stop().

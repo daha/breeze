@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(breeze_pc_supersup).
+-module(breeze_worker_supersup).
 
 -behaviour(supervisor).
 
@@ -105,8 +105,8 @@ stop() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    ChildSpec = {worker_sup, {breeze_pc_sup, start_link, []},
-                 transient, infinity, supervisor, [pc_sup]},
+    ChildSpec = {worker_sup, {breeze_worker_sup, start_link, []},
+                 transient, infinity, supervisor, [worker_sup]},
     {ok, {{simple_one_for_one, 0, 1}, [ChildSpec]}}.
 
 %%%===================================================================

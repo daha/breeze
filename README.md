@@ -9,31 +9,32 @@ be data loss when a worker crashes.
 
 Design
 ------
-epw - event processing worker
-epc - event processing controller
+pw - processing worker
+gw - generating worker
+wc - worker controller
 
 Diagram over the processes:
 1-1: one to one
 1-N: one to many
 
                        +-+
-                       | | <- sup
+                       | | <- breeze_sup
                      1 +-+
                       / |1
                      /  |
                   1 /   |1
                  +-+   +-+
-      epc_sup -> | |   | | pc_supersup
+       wc_sup -> | |   | | worker_supersup
                1 +-+   +-+
                 /       |1
                /        |
             N /         |N
            +-+         +-+
-    epc -> | |         | | <- pc_sup
+     wc -> | |         | | <- worker_sup
            +-+         +-+
                        1|
                         |
                        N|
                        +-+
-                       | | <- epw
+                       | | <- pw/gw
                        +-+

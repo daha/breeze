@@ -229,7 +229,7 @@ consumer_cb(Name, NumWorkers) ->
     consumer_cb(Name, NumWorkers, _Targets = []).
 
 consumer_cb(Name, NumWorkers, Targets) ->
-    consumer(Name, _Callback = epw_dummy, NumWorkers, Targets).
+    consumer(Name, _Callback = pw_dummy, NumWorkers, Targets).
 
 consumer(Name, Callback, NumWorkers) ->
     consumer(Name, Callback, NumWorkers, _Targets = []).
@@ -241,7 +241,7 @@ producer_db(Name, NumWorkers) ->
     producer_db(Name, NumWorkers, _Targets = []).
 
 producer_db(Name, NumWorkers, Targets) ->
-    producer(Name, _Callback = eg_dummy, NumWorkers, Targets).
+    producer(Name, _Callback = gw_dummy, NumWorkers, Targets).
 
 producer(Name, Callback, NumWorkers, Targets) ->
     worker(Name, _WorkerType = producer, Callback, NumWorkers, Targets).

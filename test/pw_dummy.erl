@@ -37,19 +37,19 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%%
+%% A basic implementation of the breeze_processing_worker behaviour
 %% @end
 
--module(eg_dummy).
--behaviour(breeze_eg).
-
--export([init/1, generate/2, terminate/2]).
+-module(pw_dummy).
+-behaviour(breeze_processing_worker).
+-export([init/1, process/3, terminate/2]).
 
 %% API Functions
+
 init(Args) ->
     {ok, Args}.
 
-generate(_EmitFun, State) ->
+process(_Msg, _EmitFun, State) ->
     {ok, State}.
 
 terminate(_Reason, State) ->

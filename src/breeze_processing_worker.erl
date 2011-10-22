@@ -37,10 +37,10 @@
 %% @author David Haglund
 %% @copyright 2011, David Haglund
 %% @doc
-%% Event processing worker
+%%
 %% @end
 
--module(breeze_epw).
+-module(breeze_processing_worker).
 
 -behaviour(gen_server).
 
@@ -209,12 +209,12 @@ code_change(_OldVsn, State, _Extra) ->
 i_make_emit_fun(Targets) ->
     fun(Msg) -> lists:foreach(
                   fun({Pid, all}) ->
-                          breeze_epc:multicast(Pid, Msg);
+                          breeze_worker_controller:multicast(Pid, Msg);
                      ({Pid, random}) ->
-                          breeze_epc:random_cast(Pid, Msg);
+                          breeze_worker_controller:random_cast(Pid, Msg);
                      ({Pid, keyhash}) ->
-                          breeze_epc:keyhash_cast(Pid, Msg);
+                          breeze_worker_controller:keyhash_cast(Pid, Msg);
                      ({Pid, dynamic}) ->
-                          breeze_epc:dynamic_cast(Pid, Msg)
+                          breeze_worker_controller:dynamic_cast(Pid, Msg)
                   end, Targets)
     end.

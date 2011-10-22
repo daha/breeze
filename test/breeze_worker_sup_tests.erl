@@ -40,54 +40,58 @@
 %%
 %% @end
 
--module(breeze_pc_sup_tests).
+-module(breeze_worker_sup_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
-% use breeze_epw as a worker
-epw_start_stop_test() ->
-    test_start_stop(breeze_epw, epw_dummy), ok.
+% use breeze_processing_worker as a worker
+processing_worker_start_stop_test() ->
+    test_start_stop(breeze_processing_worker, pw_dummy), ok.
 
-epw_start_workers_test() ->
-    test_start_workers(breeze_epw, epw_dummy), ok.
+processing_worker_start_workers_test() ->
+    test_start_workers(breeze_processing_worker, pw_dummy), ok.
 
-epw_fail_to_start_worker_test() ->
-    test_fail_to_start_worker(breeze_epw, epw_dummy), ok.
+processing_worker_fail_to_start_worker_test() ->
+    test_fail_to_start_worker(breeze_processing_worker, pw_dummy), ok.
 
-epw_workers_should_be_temporary_test() ->
-    test_workers_should_be_temporary(breeze_epw, epw_dummy), ok.
+processing_worker_workers_should_be_temporary_test() ->
+    test_workers_should_be_temporary(breeze_processing_worker, pw_dummy), ok.
 
-epw_should_pass_configuration_to_worker_test() ->
-    test_should_pass_configuration_to_worker(breeze_epw, epw_dummy), ok.
+processing_worker_should_pass_configuration_to_worker_test() ->
+    test_should_pass_configuration_to_worker(breeze_processing_worker,
+					     pw_dummy),
+    ok.
 
-% use breeze_eg as a worker
-eg_start_stop_test() ->
-    test_start_stop(breeze_eg, eg_dummy), ok.
+% use breeze_generating_worker as a worker
+generating_worker_start_stop_test() ->
+    test_start_stop(breeze_generating_worker, gw_dummy), ok.
 
-eg_start_workers_test() ->
-    test_start_workers(breeze_eg, eg_dummy), ok.
+generating_worker_start_workers_test() ->
+    test_start_workers(breeze_generating_worker, gw_dummy), ok.
 
-eg_fail_to_start_worker_test() ->
-    test_fail_to_start_worker(breeze_eg, eg_dummy), ok.
+generating_worker_fail_to_start_worker_test() ->
+    test_fail_to_start_worker(breeze_generating_worker, gw_dummy), ok.
 
-eg_workers_should_be_temporary_test() ->
-    test_workers_should_be_temporary(breeze_eg, eg_dummy), ok.
+generating_worker_workers_should_be_temporary_test() ->
+    test_workers_should_be_temporary(breeze_generating_worker, gw_dummy), ok.
 
-eg_should_pass_configuration_to_worker_test() ->
-    test_should_pass_configuration_to_worker(breeze_eg, eg_dummy), ok.
+generating_worker_should_pass_configuration_to_worker_test() ->
+    test_should_pass_configuration_to_worker(breeze_generating_worker,
+					     gw_dummy),
+    ok.
 
 %% Common tests
 test_start_stop(WorkerMod, CallbackModule) ->
-    {ok, Pid} = breeze_pc_sup:start_link(WorkerMod, CallbackModule),
+    {ok, Pid} = breeze_worker_sup:start_link(WorkerMod, CallbackModule),
     ?assert(is_process_alive(Pid)),
     sup_tests_common:expect_one_spec_none_active(Pid),
-    ok = breeze_pc_sup:stop(Pid),
-    ok = breeze_pc_sup:stop(Pid).
+    ok = breeze_worker_sup:stop(Pid),
+    ok = breeze_worker_sup:stop(Pid).
 
 test_start_workers(WorkerMod, CallbackModule) ->
     Pid = start(WorkerMod, CallbackModule),
     ?assertMatch({ok, [_Pid1, _Pid2]},
-                 breeze_pc_sup:start_workers(Pid, 2)),
+                 breeze_worker_sup:start_workers(Pid, 2)),
     ?assert(meck:called(WorkerMod, start_link, [CallbackModule, [], []])),
     sup_tests_common:expect_supervisor_children(Pid, _Sups = 0, _Workers = 2),
     stop(Pid, WorkerMod).
@@ -97,19 +101,19 @@ test_should_pass_configuration_to_worker(WorkerMod, CallbackModule) ->
     WorkerOpts = [make_ref()],
     Opts = [make_ref()],
     {ok, [_ChildPid]} =
-        breeze_pc_sup:start_workers(Pid, 1, WorkerOpts, Opts),
+        breeze_worker_sup:start_workers(Pid, 1, WorkerOpts, Opts),
     ?assert(meck:called(WorkerMod, start_link,
                         [CallbackModule, WorkerOpts, Opts])),
     stop(Pid, WorkerMod).
 
 test_fail_to_start_worker(WorkerMod, _CallbackModule) ->
     Pid = start(WorkerMod, invalid_module),
-    ?assertMatch({error, _Reason}, breeze_pc_sup:start_workers(Pid, 1)),
+    ?assertMatch({error, _Reason}, breeze_worker_sup:start_workers(Pid, 1)),
     stop(Pid, WorkerMod).
 
 test_workers_should_be_temporary(WorkerMod, CallbackModule) ->
     Pid = start(WorkerMod, CallbackModule),
-    {ok, [ChildPid1, _ChildPid2]} = breeze_pc_sup:start_workers(Pid, 2),
+    {ok, [ChildPid1, _ChildPid2]} = breeze_worker_sup:start_workers(Pid, 2),
     Ref = monitor(process, ChildPid1),
     exit(ChildPid1, abnormal),
     receive {'DOWN', Ref, process, ChildPid1, _Info} -> ok end,
@@ -118,10 +122,10 @@ test_workers_should_be_temporary(WorkerMod, CallbackModule) ->
 
 %% Internal functions
 start(WorkerMod, CallbackModule) ->
-    {ok, Pid} = breeze_pc_sup:start_link(WorkerMod, CallbackModule),
+    {ok, Pid} = breeze_worker_sup:start_link(WorkerMod, CallbackModule),
     meck:new(WorkerMod, [passthrough]),
     Pid.
 
 stop(Pid, WorkerMod) ->
-   breeze_pc_sup:stop(Pid),
+   breeze_worker_sup:stop(Pid),
    meck:unload(WorkerMod).

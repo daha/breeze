@@ -65,15 +65,15 @@ tests_with_mock_test_() ->
       T <- [
 	    fun ?MODULE:t_should_not_crash_on_random_data/1,
 	    fun ?MODULE:t_should_check_configuration_before_set/1,
-	    fun ?MODULE:t_read_simple_config_and_start_epc_consumer/1,
-	    fun ?MODULE:t_read_simple_config_and_start_epc_producer/1,
+	    fun ?MODULE:t_read_simple_config_and_start_worker_controller_consumer/1,
+	    fun ?MODULE:t_read_simple_config_and_start_worker_controller_producer/1,
 	    fun ?MODULE:t_set_and_start_configuration/1,
 	    fun ?MODULE:t_should_not_set_configuration_with_a_configuration/1,
 	    fun ?MODULE:t_consumers_should_be_started_before_producers/1,
-	    fun ?MODULE:t_read_config_with_two_connected_epcs/1,
+	    fun ?MODULE:t_read_config_with_two_connected_worker_controllers/1,
 	    fun ?MODULE:t_read_config_with_dynamic_worker/1,
-	    fun ?MODULE:t_read_config_with_two_epcs_with_worker_config/1,
-	    fun ?MODULE:t_get_epc_by_name/1
+	    fun ?MODULE:t_read_config_with_two_worker_controllers_with_worker_config/1,
+	    fun ?MODULE:t_get_worker_controller_by_name/1
 	   ]]}.
 
 t_should_not_crash_on_random_data(_) ->
@@ -88,11 +88,11 @@ t_should_check_configuration_before_set(_) ->
     {ok, _Pid} = breeze_master:start_link([]),
     test_config_check(set_and_start_configuration).
 
-t_read_simple_config_and_start_epc_consumer(Setup) ->
-    test_read_simple_config_and_start_epc(Setup, consumer).
+t_read_simple_config_and_start_worker_controller_consumer(Setup) ->
+    test_read_simple_config_and_start_worker_controller(Setup, consumer).
 
-t_read_simple_config_and_start_epc_producer(Setup) ->
-    test_read_simple_config_and_start_epc(Setup, producer).
+t_read_simple_config_and_start_worker_controller_producer(Setup) ->
+    test_read_simple_config_and_start_worker_controller(Setup, producer).
 
 % TODO: code duplication
 t_set_and_start_configuration({WorkerSup, [EpcPid|_]}) ->
@@ -107,12 +107,13 @@ t_set_and_start_configuration({WorkerSup, [EpcPid|_]}) ->
 
     {ok, _Pid} = breeze_master:start_link([]),
     ?assertEqual(ok, breeze_master:set_and_start_configuration(Config1)),
-    ?assert(meck:called(breeze_pc_supersup, start_worker_sup,
+    ?assert(meck:called(breeze_worker_supersup, start_worker_sup,
                         [WorkerMod, WorkerCallback])),
-    ?assert(meck:called(breeze_epc_sup, start_epc,
+    ?assert(meck:called(breeze_worker_controller_sup, start_worker_controller,
 			[Name, WorkerMod, WorkerSup])),
-    ?assertNot(meck:called(breeze_epc, set_targets, [EpcPid, []])),
-    ?assert(meck:called(breeze_epc, start_workers,
+    ?assertNot(meck:called(breeze_worker_controller, set_targets,
+			   [EpcPid, []])),
+    ?assert(meck:called(breeze_worker_controller, start_workers,
 			[EpcPid, NumberOfWorkers, []])).
 
 t_should_not_set_configuration_with_a_configuration(_) ->
@@ -132,32 +133,41 @@ t_should_not_set_configuration_with_a_configuration(_) ->
 t_consumers_should_be_started_before_producers(
   {WorkerSup, [EpcPid1, EpcPid2, EpcPid3|_]}) ->
     Config0 = [],
-    Config1 = append_worker(Config0, consumer1, consumer, epw_dummy, 3),
-    Config2 = append_worker(Config1, producer, producer, eg_dummy, 1,
+    Config1 = append_worker(Config0, consumer1, consumer, pw_dummy, 3),
+    Config2 = append_worker(Config1, producer, producer, gw_dummy, 1,
                             [{consumer1, all}, {consumer2, all}]),
-    Config3 = append_worker(Config2, consumer2, consumer, epw_dummy, 2,
+    Config3 = append_worker(Config2, consumer2, consumer, pw_dummy, 2,
                             [{consumer1, all}]),
     {ok, _Pid} = breeze_master:start_link(Config3),
-    EpcSupHistory = clean_meck_history(meck:history(breeze_epc_sup)),
+    EpcSupHistory = clean_meck_history(
+		      meck:history(breeze_worker_controller_sup)),
 
-    ExpectedEpcSupHistory = [{breeze_epc_sup,start_epc,
-			      [consumer1,breeze_epw,WorkerSup]},
-                             {breeze_epc_sup,start_epc,
-			      [consumer2,breeze_epw,WorkerSup]},
-                             {breeze_epc_sup,start_epc,
-			      [producer,breeze_eg,WorkerSup]}],
+    ExpectedEpcSupHistory = [{breeze_worker_controller_sup,
+			      start_worker_controller,
+			      [consumer1,breeze_processing_worker,WorkerSup]},
+                             {breeze_worker_controller_sup,
+			      start_worker_controller,
+			      [consumer2,breeze_processing_worker,WorkerSup]},
+                             {breeze_worker_controller_sup,
+			      start_worker_controller,
+			      [producer,breeze_generating_worker,WorkerSup]}],
     ?assertEqual(ExpectedEpcSupHistory, EpcSupHistory),
 
-    EpcHistory = clean_meck_history(meck:history(breeze_epc)),
-    ExpectedEpcHistory = [{breeze_epc,set_targets,[EpcPid2,[{EpcPid1,all}]]},
-                          {breeze_epc, start_workers,[EpcPid1, 3, []]},
-                          {breeze_epc, start_workers,[EpcPid2, 2, []]},
-                          {breeze_epc, set_targets,
+    EpcHistory = clean_meck_history(meck:history(breeze_worker_controller)),
+    ExpectedEpcHistory = [{breeze_worker_controller,set_targets,
+			   [EpcPid2,[{EpcPid1,all}]]},
+                          {breeze_worker_controller, start_workers,
+			   [EpcPid1, 3, []]},
+                          {breeze_worker_controller, start_workers,
+			   [EpcPid2, 2, []]},
+                          {breeze_worker_controller, set_targets,
                            [EpcPid3,[{EpcPid1,all},{EpcPid2,all}]]},
-                          {breeze_epc, start_workers,[EpcPid3, 1, []]}],
+                          {breeze_worker_controller, start_workers,
+			   [EpcPid3, 1, []]}],
     ?assertEqual(ExpectedEpcHistory, EpcHistory).
 
-t_read_config_with_two_connected_epcs({WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
+t_read_config_with_two_connected_worker_controllers(
+  {WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
     SenderCallback = sender_callback,
     ReceiverCallback = receiver_callback,
     Callbacks = [SenderCallback, ReceiverCallback],
@@ -173,18 +183,21 @@ t_read_config_with_two_connected_epcs({WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
                             ReceiverWorkers),
     {ok, _Pid} = breeze_master:start_link(Config2),
 
-    ?assert(meck:called(breeze_pc_supersup, start_worker_sup,
+    ?assert(meck:called(breeze_worker_supersup, start_worker_sup,
                         [WorkerMod, SenderCallback])),
-    ?assert(meck:called(breeze_pc_supersup, start_worker_sup,
+    ?assert(meck:called(breeze_worker_supersup, start_worker_sup,
                         [WorkerMod, ReceiverCallback])),
-    ?assertEqual(1, meck:num_calls(breeze_epc_sup, start_epc,
+    ?assertEqual(1, meck:num_calls(breeze_worker_controller_sup,
+				   start_worker_controller,
                                    [sender, WorkerMod, WorkerSup])),
-    ?assertEqual(1, meck:num_calls(breeze_epc_sup, start_epc,
+    ?assertEqual(1, meck:num_calls(breeze_worker_controller_sup,
+				   start_worker_controller,
                                    [receiver, WorkerMod, WorkerSup])),
-    ?assert(meck:called(breeze_epc, set_targets, [EpcPid1, [{EpcPid2, all}]])),
-    ?assert(meck:called(breeze_epc, start_workers,
+    ?assert(meck:called(breeze_worker_controller, set_targets,
+			[EpcPid1, [{EpcPid2, all}]])),
+    ?assert(meck:called(breeze_worker_controller, start_workers,
 			[EpcPid1, SenderWorkers, []])),
-    ?assert(meck:called(breeze_epc, start_workers,
+    ?assert(meck:called(breeze_worker_controller, start_workers,
 			[EpcPid2, ReceiverWorkers, []])),
     unload_callbacks(Callbacks).
 
@@ -204,44 +217,45 @@ t_read_config_with_dynamic_worker({_WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
                             ReceiverWorkers),
     {ok, _Pid} = breeze_master:start_link(Config2),
 
-    ?assert(meck:called(breeze_epc, set_targets,
+    ?assert(meck:called(breeze_worker_controller, set_targets,
 			[EpcPid1, [{EpcPid2, TargetType}]])),
-    ?assert(meck:called(breeze_epc, start_workers,
+    ?assert(meck:called(breeze_worker_controller, start_workers,
 			[EpcPid1, SenderWorkers, []])),
-    ?assertNot(meck:called(breeze_epc, start_workers,
+    ?assertNot(meck:called(breeze_worker_controller, start_workers,
 			   [EpcPid2, ReceiverWorkers, []])),
-    ?assert(meck:called(breeze_epc, enable_dynamic_workers, [EpcPid2])),
+    ?assert(meck:called(breeze_worker_controller, enable_dynamic_workers,
+			[EpcPid2])),
     unload_callbacks(Callbacks).
 
-t_read_config_with_two_epcs_with_worker_config(
+t_read_config_with_two_worker_controllers_with_worker_config(
   {_WorkerSup, [EpcPid1, EpcPid2 | _]}) ->
     SenderConfig = [sender_config],
     ReceiverConfig = [receiver_config],
     SenderWorkers = 1,
     ReceiverWorkers = 2,
     Config0 = [],
-    Config1 = append_worker(Config0, sender, producer, eg_dummy, SenderWorkers),
-    Config2 = append_worker(Config1, receiver, consumer, epw_dummy,
+    Config1 = append_worker(Config0, sender, producer, gw_dummy, SenderWorkers),
+    Config2 = append_worker(Config1, receiver, consumer, pw_dummy,
 			    ReceiverWorkers),
     Config3 = append_worker_config(Config2, sender, SenderConfig),
     Config4 = append_worker_config(Config3, receiver, ReceiverConfig),
 
     {ok, _Pid} = breeze_master:start_link(Config4),
-    ?assertNot(meck:called(breeze_epc, start_workers,
+    ?assertNot(meck:called(breeze_worker_controller, start_workers,
 			   [EpcPid1, ReceiverWorkers, []])),
-    ?assertNot(meck:called(breeze_epc, start_workers,
+    ?assertNot(meck:called(breeze_worker_controller, start_workers,
 			   [EpcPid2, SenderWorkers, []])),
 
-    ?assert(meck:called(breeze_epc, start_workers,
+    ?assert(meck:called(breeze_worker_controller, start_workers,
                         [EpcPid1, ReceiverWorkers, ReceiverConfig])),
-    ?assert(meck:called(breeze_epc, start_workers,
+    ?assert(meck:called(breeze_worker_controller, start_workers,
                         [EpcPid2, SenderWorkers, SenderConfig])).
 
-t_get_epc_by_name({_WorkerSup, [EpcPid|_]}) ->
+t_get_worker_controller_by_name({_WorkerSup, [EpcPid|_]}) ->
     WorkerName = dummy,
     InvalidWorkerName = invalid_name,
     Config0 = [],
-    Config1 = append_worker(Config0, WorkerName, consumer, epw_dummy, 1),
+    Config1 = append_worker(Config0, WorkerName, consumer, pw_dummy, 1),
 
     {ok, _Pid} = breeze_master:start_link(Config1),
     ?assertEqual({error, {not_found, InvalidWorkerName}},
@@ -258,13 +272,13 @@ test_config_check(Func) ->
     ?assert(meck:called(breeze_config_validator, check_config, [Config])),
     meck:unload(breeze_config_validator).
 
-test_read_simple_config_and_start_epc(Setup, WorkerType) ->
-    test_read_simple_config_and_start_epc(Setup,
+test_read_simple_config_and_start_worker_controller(Setup, WorkerType) ->
+    test_read_simple_config_and_start_worker_controller(Setup,
       WorkerType, breeze_master:get_worker_mode_by_type(WorkerType),
       callback_mod(WorkerType)).
 
-test_read_simple_config_and_start_epc({WorkerSup, [EpcPid|_]}, WorkerType,
-				      WorkerMod, WorkerCallback) ->
+test_read_simple_config_and_start_worker_controller(
+  {WorkerSup, [EpcPid|_]}, WorkerType, WorkerMod, WorkerCallback) ->
     NumberOfWorkers = 2,
     Name = dummy,
     Config0 = [],
@@ -273,33 +287,37 @@ test_read_simple_config_and_start_epc({WorkerSup, [EpcPid|_]}, WorkerType,
 
     {ok, _Pid} = breeze_master:start_link(Config1),
 
-    ?assert(meck:called(breeze_pc_supersup, start_worker_sup,
+    ?assert(meck:called(breeze_worker_supersup, start_worker_sup,
                         [WorkerMod, WorkerCallback])),
-    ?assert(meck:called(breeze_epc_sup, start_epc,
+    ?assert(meck:called(breeze_worker_controller_sup, start_worker_controller,
 			[Name, WorkerMod, WorkerSup])),
-    ?assertNot(meck:called(breeze_epc, set_targets, [EpcPid, []])),
-    ?assert(meck:called(breeze_epc, start_workers,
+    ?assertNot(meck:called(breeze_worker_controller, set_targets,
+			   [EpcPid, []])),
+    ?assert(meck:called(breeze_worker_controller, start_workers,
 			[EpcPid, NumberOfWorkers, []])).
 
 %% Internal functions
 setup() ->
-    meck:new(breeze_pc_supersup),
-    meck:new(breeze_epc_sup),
-    meck:new(breeze_epc),
+    meck:new(breeze_worker_supersup),
+    meck:new(breeze_worker_controller_sup),
+    meck:new(breeze_worker_controller),
     WorkerSup = create_pid(),
     EpcPids = lists:map(fun(_) -> create_pid() end, lists:seq(1, 3)),
     StartEpcRetVal = lists:zip(lists:duplicate(length(EpcPids), ok), EpcPids),
-    meck:expect(breeze_pc_supersup, start_worker_sup, 2, {ok, WorkerSup}),
-    meck:sequence(breeze_epc_sup, start_epc, 3, StartEpcRetVal),
-    meck:expect(breeze_epc, set_targets, 2, ok),
-    meck:expect(breeze_epc, start_workers, 3, ok),
-    meck:expect(breeze_epc, enable_dynamic_workers, 1, ok),
+    meck:expect(breeze_worker_supersup, start_worker_sup, 2, {ok, WorkerSup}),
+    meck:sequence(breeze_worker_controller_sup, start_worker_controller, 3,
+		  StartEpcRetVal),
+    meck:expect(breeze_worker_controller, set_targets, 2, ok),
+    meck:expect(breeze_worker_controller, start_workers, 3, ok),
+    meck:expect(breeze_worker_controller, enable_dynamic_workers, 1, ok),
     {WorkerSup, EpcPids}.
 
 mock_callbacks(Callbacks) ->
-    lists:foreach(fun(Callback) -> mock_epw_callback(Callback) end, Callbacks).
+    lists:foreach(fun(Callback) ->
+			  mock_processing_worker_callback(Callback)
+		  end, Callbacks).
 
-mock_epw_callback(CallbackModule) ->
+mock_processing_worker_callback(CallbackModule) ->
     meck:new(CallbackModule),
     meck:expect(CallbackModule, init, fun(State) -> {ok, State} end),
     meck:expect(CallbackModule, process,
@@ -314,9 +332,9 @@ unload_callbacks(Callbacks) ->
     lists:foreach(fun(Callback) -> meck:unload(Callback) end, Callbacks).
 
 unload_mocks() ->
-    meck:unload(breeze_epc),
-    meck:unload(breeze_epc_sup),
-    meck:unload(breeze_pc_supersup).
+    meck:unload(breeze_worker_controller),
+    meck:unload(breeze_worker_controller_sup),
+    meck:unload(breeze_worker_supersup).
 
 create_pid() ->
      spawn(fun() -> timer:sleep(infinity) end).
@@ -342,6 +360,6 @@ merge(PropList1, PropList2) ->
     lists:keymerge(1, lists:keysort(1, PropList1), lists:keysort(1, PropList2)).
 
 callback_mod(producer) ->
-    eg_dummy;
+    gw_dummy;
 callback_mod(consumer) ->
-    epw_dummy.
+    pw_dummy.

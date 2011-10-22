@@ -40,7 +40,7 @@
 %%
 %% @end
 
--module(breeze_epw_tests).
+-module(breeze_processing_worker_tests).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -50,10 +50,10 @@
 
 % Exported functions
 tested_module() ->
-    breeze_epw.
+    breeze_processing_worker.
 
 create_mock() ->
-    Mock = epw_mock,
+    Mock = processing_worker_mock,
     meck:new(Mock),
     meck:expect(Mock, init, fun(State) -> {ok, State} end),
     meck:expect(Mock, process, fun(_Msg, _EmitFun, State) -> {ok, State} end),
@@ -93,7 +93,7 @@ verify_emitted_message_is_dynamically_casted_to_all_targets_test() ->
 
 verify_emitted_message_is_sent_to_all_targets(EpcEmitFunc, DistKey) ->
     Msg = {foo, bar},
-    EmitTriggerFun = fun(Pid) -> breeze_epw:process(Pid, Msg) end,
+    EmitTriggerFun = fun(Pid) -> breeze_processing_worker:process(Pid, Msg) end,
     EmitTriggerMock =
         fun(Mock) ->
                 meck:expect(Mock, process,
