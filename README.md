@@ -19,7 +19,7 @@ processing worker gets data from generating workers of other
 processing workers and can emit the same or other erlang terms.
 
 The topology has the following format:
-```
+<pre><code>
 {Name, WorkerType, BehaviourImplementationModule, NumberOfWorkers, Targets}
 Name = atom()
 WorkerType = generating_worker | processing_worker
@@ -28,7 +28,7 @@ NumberOfWorkers = integer() | dynamic
 Targets = [Target]
 Target = {Name, TargetType}
 TargetType = all | random | keyhash | dynamic
-```
+</code></pre>
 
 Where the name is an atom and must be unique in the
 topology. WorkerType is currently generating_worker or
