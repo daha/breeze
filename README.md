@@ -19,7 +19,7 @@ processing worker gets data from generating workers of other
 processing workers and can emit the same or other erlang terms.
 
 The topology has the following format:
-```erlang
+```
 {Name, WorkerType, BehaviourImplementationModule, NumberOfWorkers, Targets}
 Name = atom()
 WorkerType = generating_worker | processing_worker
