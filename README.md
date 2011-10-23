@@ -1,22 +1,22 @@
 Breeze
 ======
-Breeze is a experiment to make a stream processing app in erlang.  The
-intention is to keep it simple but using erlang OTP principles with
-erlang applications, supervisors and make use of existing behaviours
+Breeze is a experiment to make a stream processing app in Erlang.  The
+intention is to keep it simple but using Erlang OTP principles with
+Erlang applications, supervisors and make use of existing behaviours
 and create new ones when it is suitable. The first versions will be
 single node without guarantees of processing all events.  There might
 be data loss when a worker crashes.
 
 The processing is started ones the master has been configured with a
-topology, either by configuring the breeze application configuration
-or by calling breeze_master:set_and_start_configuration/1. The
-topology consist of two types of entities, generating workers and
-procesing workers implementing the behaviours breeze_generating_worker
+topology, either by configuring the breeze application with a config
+file or by calling breeze_master:set_and_start_configuration/1. The
+topology consists of two types of entities, generating workers and
+procesing workers, implementing the behaviours breeze_generating_worker
 and breeze_processing_worker. The names if these will change as soon
 as I find some better names for them. The generating worker emits
-erlang terms from some data source, like a file or twitter stream. The
+Erlang terms from some data source, like a file or twitter stream. The
 processing worker gets data from generating workers of other
-processing workers and can emit the same or other erlang terms.
+processing workers and can emit the same or other Erlang terms.
 
 The topology has the following format:
 <pre><code>
@@ -53,10 +53,11 @@ tuples and how the data is distributed.
   <dd>the term must be a tuple and the tuple will be sent to the
   worker corresponding to the first element, if it is the first
   message with this specific value of the first element a new worker
-  will be started.</dd>
+  will be started. The number of workers for the target must be
+  dynamic.</dd>
 </dl>
 
-Below is a example topology where entity "one" is a genrating worker
+Below is a example topology where entity "one" is a generating worker
 and has 1 worker and it send the emitted terms to all workers of
 entity "two". Entity "two" is a processing worker with 2 workers and
 it sends its emitted tuples randomly to one of the "three" workers.
