@@ -4,5 +4,5 @@ compiler/allOptions={d, 'TEST'}
 eclipse.preferences.version=1
 external_includes=
 external_modules=deps/meck/ebin
-output_dir=epa/ebin
-source_dirs=epa/src;epa/test
+output_dir=ebin
+source_dirs=src;test
