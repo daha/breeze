@@ -60,6 +60,6 @@ test_start_worker_controller(Name, WorkerMod, WorkerCallback) ->
     sup_tests_common:expect_one_spec_none_active(Pid),
     {ok, WorkerSup} = breeze_worker_sup:start_link(WorkerMod, WorkerCallback),
     {ok, _EpcPid} = breeze_worker_controller_sup:start_worker_controller(
-		      Name, WorkerMod, WorkerSup),
+		      Name, WorkerMod, WorkerSup, []),
     sup_tests_common:expect_one_active_worker(Pid),
     breeze_worker_controller_sup:stop().

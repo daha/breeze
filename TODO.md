@@ -10,12 +10,33 @@ NEW
 
 HIGH priority
 -------------
-* move worker config to the start of the worker_controller (to work
-  with dynamic workers)
-    * should set callbackArgs in dynamically started workers
+* flaky tests:
+    * <pre><code>
+    master_tests: valid_topology_terget_ref_type_test...*failed*
+    ::error:{assertMatch_failed,
+              [{module,master_tests},
+               {line,163},
+               {expression,"master : start_link ( ValidTargetRefType2 )"},
+               {expected,"{ ok , _Pid }"},
+               {value,{error,{already_started,<0.875.0>}}}]}
+      in function master_tests:'-valid_topology_terget_ref_type_test/0-fun-1-'/0
+      in call from master_tests:valid_topology_terget_ref_type_test/0
+    </code></pre>
+    * <pre><code>
+    worker_controller_tests: t_dynamic_workers_should_be_restarted_if_they_crash...*failed*
+    ::error:{assertEqual_failed,
+              [{module,worker_controller_tests},
+               {line,232},
+               {expression,
+                   "meck : num_calls ( WorkerMod , process , [ NewWorker , Msg1 ] )"},
+               {expected,1},
+               {value,0}]}
+      in function worker_controller_tests:'-t_dynamic_workers_should_be_restarted_if_they_crash/1-fun-1-'/3
+      in call from worker_controller_tests:t_dynamic_workers_should_be_restarted_if_they_crash/1
+      </code></pre>
 * Route messages in worker_controller to workers for
     * Hash on key X or a list of fields (from a record)
-    
+
 MEDIUM priority
 ---------------
 * add checks for unsupported options in config_validator
@@ -52,30 +73,6 @@ LOW priority
 * Create a raw event generator which is spawned with a {M,F,A} and then
   it is on its own (possibly supervised via a supervisor_bridge)
 * Extract the common code from the sup tests
-* flaky tests:
-    * <pre><code>
-    master_tests: valid_topology_terget_ref_type_test...*failed*
-    ::error:{assertMatch_failed,
-              [{module,master_tests},
-               {line,163},
-               {expression,"master : start_link ( ValidTargetRefType2 )"},
-               {expected,"{ ok , _Pid }"},
-               {value,{error,{already_started,<0.875.0>}}}]}
-      in function master_tests:'-valid_topology_terget_ref_type_test/0-fun-1-'/0
-      in call from master_tests:valid_topology_terget_ref_type_test/0
-    </code></pre>
-    * <pre><code>
-    worker_controller_tests: t_dynamic_workers_should_be_restarted_if_they_crash...*failed*
-    ::error:{assertEqual_failed,
-              [{module,worker_controller_tests},
-               {line,232},
-               {expression,
-                   "meck : num_calls ( WorkerMod , process , [ NewWorker , Msg1 ] )"},
-               {expected,1},
-               {value,0}]}
-      in function worker_controller_tests:'-t_dynamic_workers_should_be_restarted_if_they_crash/1-fun-1-'/3
-      in call from worker_controller_tests:t_dynamic_workers_should_be_restarted_if_they_crash/1
-      </code></pre>
 * Stub processing_worker_sup in worker_controller_tests
 * Make the processing_worker and generating_worker behaviour handle
   code_change

@@ -46,11 +46,11 @@
 
 %% API
 -export([start_link/3]).
+-export([start_link/4]).
 -export([stop/1]).
 
 -export([set_targets/2]).
 -export([start_workers/2]).
--export([start_workers/3]).
 -export([enable_dynamic_workers/1]).
 
 -export([sync/1]).
@@ -85,9 +85,13 @@
 %%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Name, WorkerMod, WorkerSup)
-  when is_atom(Name), is_atom(WorkerMod), is_pid(WorkerSup) ->
-    gen_server:start_link({local, Name}, ?MODULE, [WorkerMod, WorkerSup], []).
+start_link(Name, WorkerMod, WorkerSup) ->
+    start_link(Name, WorkerMod, WorkerSup, _WorkerConfig = []).
+start_link(Name, WorkerMod, WorkerSup, WorkerConfig)
+  when is_atom(Name), is_atom(WorkerMod), is_pid(WorkerSup),
+       is_list(WorkerConfig) ->
+    gen_server:start_link({local, Name}, ?MODULE,
+                          [WorkerMod, WorkerSup, WorkerConfig], []).
 
 stop(Server) ->
     gen_server:call(Server, stop).
@@ -95,11 +99,9 @@ stop(Server) ->
 set_targets(Server, Targets) when is_list(Targets) ->
     gen_server:call(Server, {set_targets, Targets}).
 
-start_workers(Server, NumberOfWorkers) ->
-    start_workers(Server, NumberOfWorkers, _WorkerConfig = []).
-start_workers(Server, NumberOfWorkers, WorkerConfig)
+start_workers(Server, NumberOfWorkers)
   when is_integer(NumberOfWorkers) ->
-    gen_server:call(Server, {start_workers, NumberOfWorkers, WorkerConfig}).
+    gen_server:call(Server, {start_workers, NumberOfWorkers}).
 
 enable_dynamic_workers(Server) ->
     gen_server:call(Server, dynamic_workers).
@@ -138,10 +140,11 @@ sync(Server) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([WorkerMod, WorkerSup]) ->
+init([WorkerMod, WorkerSup, WorkerConfig]) ->
     {_, A, B} = now(),
     random:seed(A, B, erlang:phash2(make_ref())),
-    {ok, #state{worker_mod = WorkerMod, sup_pid = WorkerSup}}.
+    {ok, #state{worker_mod = WorkerMod, sup_pid = WorkerSup,
+                worker_config = WorkerConfig}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -157,15 +160,15 @@ init([WorkerMod, WorkerSup]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call({start_workers, NumberOfWorkers, WorkerConfig}, _From,
+handle_call({start_workers, NumberOfWorkers}, _From,
             State = #state{workers = [], dynamic = false}) ->
-    Workers = i_start_workers(State, NumberOfWorkers, WorkerConfig),
-    {reply, ok, State#state{workers = Workers, worker_config = WorkerConfig}};
-handle_call({start_workers, _NumberOfWorkers, _WorkerConfig}, _From,
+    Workers = i_start_workers(State, NumberOfWorkers, State#state.worker_config),
+    {reply, ok, State#state{workers = Workers}};
+handle_call({start_workers, _NumberOfWorkers}, _From,
             State = #state{dynamic = false}) ->
     {reply, {error, already_started}, State};
-handle_call({start_workers, _NumberOfWorkers, _WorkerConfig},
-            _From, State = #state{dynamic = true}) ->
+handle_call({start_workers, _NumberOfWorkers}, _From,
+            State = #state{dynamic = true}) ->
     {reply, {error, dynamic_workers}, State};
 handle_call(dynamic_workers, _From, State = #state{workers = []}) ->
     {reply, ok, State#state{dynamic = true}};

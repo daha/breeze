@@ -220,49 +220,49 @@ i_start(Config) ->
     i_start_topology(Topology, WorkerConfigs).
 
 i_start_topology(Topology, WorkerConfigs) ->
-    {ok, ControllerList} = i_start_all_worker_controllers(Topology),
+    {ok, ControllerList} = i_start_all_worker_controllers(Topology,
+                                                          WorkerConfigs),
     i_connect_worker_controllers_by_type(processing_worker, Topology,
 					 ControllerList),
-    i_start_workers_by_type(processing_worker, Topology, ControllerList,
-			    WorkerConfigs),
+    i_start_workers_by_type(processing_worker, Topology, ControllerList),
 
     i_connect_worker_controllers_by_type(generating_worker, Topology,
 					 ControllerList),
-    i_start_workers_by_type(generating_worker, Topology, ControllerList,
-			    WorkerConfigs),
+    i_start_workers_by_type(generating_worker, Topology, ControllerList),
     ControllerList.
 
-% i_start_all_worker_controller/1
-i_start_all_worker_controllers(Topology) ->
+% i_start_all_worker_controller/2
+i_start_all_worker_controllers(Topology, WorkerConfigs) ->
     {ok, Consumers} = i_start_all_worker_controllers_by_type(processing_worker,
-							     Topology),
+							     Topology, WorkerConfigs),
     {ok, Producer} = i_start_all_worker_controllers_by_type(generating_worker,
-							    Topology),
+							    Topology, WorkerConfigs),
     {ok, Consumers ++ Producer}.
 
-% i_start_all_processing_worker_worker_controller/1
-i_start_all_worker_controllers_by_type(WorkerType, Topology) ->
-    i_start_all_worker_controllers_by_type(WorkerType, Topology,
+% i_start_all_processing_worker_worker_controller/3
+i_start_all_worker_controllers_by_type(WorkerType, Topology, WorkerConfigs) ->
+    i_start_all_worker_controllers_by_type(WorkerType, Topology, WorkerConfigs,
 					  _ControllerList = []).
 
-i_start_all_worker_controllers_by_type(WorkerType,
-			[{Name, WorkerType, WorkerCallback, _C, _T} | Rest],
-			Acc) ->
+i_start_all_worker_controllers_by_type(
+  WorkerType, [{Name, WorkerType, WorkerCallback, _C, _T} | Rest],
+  WorkerConfigs, Acc) ->
+    WorkerConfig = proplists:get_value(Name, WorkerConfigs, []),
     {ok, Controller} = i_start_worker_controller(Name, WorkerType,
-						 WorkerCallback),
-    i_start_all_worker_controllers_by_type(WorkerType, Rest,
+						 WorkerCallback, WorkerConfig),
+    i_start_all_worker_controllers_by_type(WorkerType, Rest, WorkerConfigs,
 					   [{Name, Controller} | Acc]);
-i_start_all_worker_controllers_by_type(WorkerType, [_| Rest], Acc) ->
-    i_start_all_worker_controllers_by_type(WorkerType, Rest, Acc);
-i_start_all_worker_controllers_by_type(_WorkerType, [], Acc) ->
+i_start_all_worker_controllers_by_type(WorkerType, [_| Rest], WorkerConfigs, Acc) ->
+    i_start_all_worker_controllers_by_type(WorkerType, Rest, WorkerConfigs, Acc);
+i_start_all_worker_controllers_by_type(_WorkerType, [], _WorkerConfigs, Acc) ->
     {ok, lists:reverse(Acc)}.
 
-i_start_worker_controller(Name, WorkerType, WorkerCallback) ->
+i_start_worker_controller(Name, WorkerType, WorkerCallback, WorkerConfig) ->
     WorkerMod = get_worker_mode_by_type(WorkerType),
     {ok, WorkerSup} = breeze_worker_supersup:start_worker_sup(
-			WorkerMod, WorkerCallback),
-    breeze_worker_controller_sup:start_worker_controller(Name, WorkerMod,
-							 WorkerSup).
+                        WorkerMod, WorkerCallback),
+    breeze_worker_controller_sup:start_worker_controller(
+      Name, WorkerMod, WorkerSup, WorkerConfig).
 
 % i_connect_worker_controllers_by_type/3
 i_connect_worker_controllers_by_type(WorkerType,
@@ -289,20 +289,19 @@ i_connect_worker_controllers_to_targets(Pid, NamedTargets, ControllerList) ->
 
 % i_start_workers_by_type/3
 i_start_workers_by_type(WorkerType, [{Name, WorkerType, _Cb, dynamic, _T} |
-				     Rest], ControllerList, WorkerConfigs) ->
+				     Rest], ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
     breeze_worker_controller:enable_dynamic_workers(Pid),
-    i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
+    i_start_workers_by_type(WorkerType, Rest, ControllerList);
 i_start_workers_by_type(WorkerType,
 			[{Name, WorkerType, _Cb, NumberOfWorkers, _Targets} |
-			 Rest], ControllerList, WorkerConfigs) ->
+			 Rest], ControllerList) ->
     Pid = proplists:get_value(Name, ControllerList),
-    WorkerConfig = proplists:get_value(Name, WorkerConfigs, []),
-    breeze_worker_controller:start_workers(Pid, NumberOfWorkers, WorkerConfig),
-    i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
-i_start_workers_by_type(WorkerType, [_| Rest], ControllerList, WorkerConfigs) ->
-    i_start_workers_by_type(WorkerType, Rest, ControllerList, WorkerConfigs);
-i_start_workers_by_type(_WorkerType, [], _ControllerList, _WorkerConfigs) ->
+    breeze_worker_controller:start_workers(Pid, NumberOfWorkers),
+    i_start_workers_by_type(WorkerType, Rest, ControllerList);
+i_start_workers_by_type(WorkerType, [_| Rest], ControllerList) ->
+    i_start_workers_by_type(WorkerType, Rest, ControllerList);
+i_start_workers_by_type(_WorkerType, [], _ControllerList) ->
     ok.
 
 % i_get_controller/2
