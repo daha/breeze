@@ -48,18 +48,16 @@ start_stop_test() ->
     sup_tests_common:test_start_stop(breeze_worker_controller_sup).
 
 start_worker_controller_processing_worker_test() ->
-    test_start_worker_controller(processing_worker_worker,
-				 breeze_processing_worker, pw_dummy).
+    test_start_worker_controller(breeze_processing_worker, pw_dummy).
 
 start_worker_controller_generating_worker_test() ->
-    test_start_worker_controller(generating_worker_worker,
-				 breeze_generating_worker, gw_dummy).
+    test_start_worker_controller(breeze_generating_worker, gw_dummy).
 
-test_start_worker_controller(Name, WorkerMod, WorkerCallback) ->
+test_start_worker_controller(WorkerMod, WorkerCallback) ->
     {ok, Pid} = breeze_worker_controller_sup:start_link(),
     sup_tests_common:expect_one_spec_none_active(Pid),
     {ok, WorkerSup} = breeze_worker_sup:start_link(WorkerMod, WorkerCallback),
     {ok, _EpcPid} = breeze_worker_controller_sup:start_worker_controller(
-		      Name, WorkerMod, WorkerSup, []),
+		      WorkerMod, WorkerSup, []),
     sup_tests_common:expect_one_active_worker(Pid),
     breeze_worker_controller_sup:stop().

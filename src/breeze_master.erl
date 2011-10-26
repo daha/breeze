@@ -248,7 +248,7 @@ i_start_all_worker_controllers_by_type(
   WorkerType, [{Name, WorkerType, WorkerCallback, _C, _T} | Rest],
   WorkerConfigs, Acc) ->
     WorkerConfig = proplists:get_value(Name, WorkerConfigs, []),
-    {ok, Controller} = i_start_worker_controller(Name, WorkerType,
+    {ok, Controller} = i_start_worker_controller(WorkerType,
 						 WorkerCallback, WorkerConfig),
     i_start_all_worker_controllers_by_type(WorkerType, Rest, WorkerConfigs,
 					   [{Name, Controller} | Acc]);
@@ -257,12 +257,12 @@ i_start_all_worker_controllers_by_type(WorkerType, [_| Rest], WorkerConfigs, Acc
 i_start_all_worker_controllers_by_type(_WorkerType, [], _WorkerConfigs, Acc) ->
     {ok, lists:reverse(Acc)}.
 
-i_start_worker_controller(Name, WorkerType, WorkerCallback, WorkerConfig) ->
+i_start_worker_controller(WorkerType, WorkerCallback, WorkerConfig) ->
     WorkerMod = get_worker_mode_by_type(WorkerType),
     {ok, WorkerSup} = breeze_worker_supersup:start_worker_sup(
                         WorkerMod, WorkerCallback),
     breeze_worker_controller_sup:start_worker_controller(
-      Name, WorkerMod, WorkerSup, WorkerConfig).
+      WorkerMod, WorkerSup, WorkerConfig).
 
 % i_connect_worker_controllers_by_type/3
 i_connect_worker_controllers_by_type(WorkerType,

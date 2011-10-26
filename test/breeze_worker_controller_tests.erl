@@ -46,8 +46,6 @@
 
 -compile(export_all).
 
--define(EPC_NAME, worker_controller_name).
-
 -define(assert_workers(WorkerSup, ExpectedWorkers),
 	?assertEqual(ExpectedWorkers, length(get_workers(WorkerSup)))).
 
@@ -59,7 +57,6 @@ tests_with_mock_test_() ->
     {foreach, fun setup/0, fun teardown/1,
      [{with, [T]} ||
       T <- [fun ?MODULE:t_start_stop/1,
-            fun ?MODULE:t_register_name/1,
             fun ?MODULE:t_start_workers/1,
             fun ?MODULE:t_start_workers_with_config_from_start/1,
             fun ?MODULE:t_should_not_allow_start_workers_once/1,
@@ -92,9 +89,6 @@ tests_with_mock_test_() ->
 
 t_start_stop([Pid | _]) ->
     ?assertNot(undefined == process_info(Pid)).
-
-t_register_name([Pid | _]) ->
-    ?assertEqual(Pid, whereis(?EPC_NAME)).
 
 t_start_workers([Pid, WorkerSup | _]) ->
     ?assertEqual(ok, breeze_worker_controller:start_workers(Pid, 2)),
@@ -209,8 +203,7 @@ t_start_dynamic_worker_when_doing_first_keycast([Pid, WorkerSup | _]) ->
 
 t_start_dynamic_worker_should_set_targets(
   [Pid, _WorkerSup, WorkerMod, MockModule, WorkerConfig | _]) ->
-    {OtherEpc, _WorkerSup2} = start(another_worker_controller, WorkerMod,
-				    MockModule),
+    {OtherEpc, _WorkerSup2} = start(WorkerMod, MockModule),
     Targets = [{OtherEpc, all}],
     ok = breeze_worker_controller:set_targets(Pid, Targets),
     ok = breeze_worker_controller:enable_dynamic_workers(Pid),
@@ -302,8 +295,7 @@ t_non_dynamic_should_not_handle_unique([Pid, WorkerSup, WorkerMod | _ ]) ->
 
 t_config_with_one_worker_controller_target(
   [Pid1, _WorkerSup1, WorkerMod, MockModule, WorkerConfig | _]) ->
-    {OtherEpc, _WorkerSup2} =
-	start(another_worker_controller, WorkerMod, MockModule),
+    {OtherEpc, _WorkerSup2} = start(WorkerMod, MockModule),
     Targets = [{OtherEpc, all}],
     ok = breeze_worker_controller:set_targets(Pid1, Targets),
     ok = breeze_worker_controller:start_workers(Pid1, 1),
@@ -390,7 +382,7 @@ setup() ->
     meck:new(breeze_processing_worker, [passthrough]),
     MockModule = create_behaviour_stub(WorkerMod),
     WorkerConfig = [make_ref()],
-    {Pid, WorkerSup} = start(?EPC_NAME, WorkerMod, MockModule, WorkerConfig),
+    {Pid, WorkerSup} = start(WorkerMod, MockModule, WorkerConfig),
     [Pid, WorkerSup, WorkerMod, MockModule, WorkerConfig].
 
 create_behaviour_stub(breeze_processing_worker) ->
@@ -404,12 +396,12 @@ create_behaviour_stub(breeze_processing_worker) ->
     meck:expect(MockModule, terminate, fun(_, State) -> State end),
     MockModule.
 
-start(Name, WorkerMod, WorkerCallback) ->
-    start(Name, WorkerMod, WorkerCallback, _WorkerConfig = []).
+start(WorkerMod, WorkerCallback) ->
+    start(WorkerMod, WorkerCallback, _WorkerConfig = []).
 
-start(Name, WorkerMod, WorkerCallback, WorkerConfig) ->
+start(WorkerMod, WorkerCallback, WorkerConfig) ->
     {ok, WorkerSup} = breeze_worker_sup:start_link(WorkerMod, WorkerCallback),
-    {ok, Pid} = breeze_worker_controller:start_link(Name, WorkerMod, WorkerSup,
+    {ok, Pid} = breeze_worker_controller:start_link(WorkerMod, WorkerSup,
                                                     WorkerConfig),
     {Pid, WorkerSup}.
 

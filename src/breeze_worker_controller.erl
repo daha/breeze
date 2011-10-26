@@ -45,8 +45,8 @@
 -behaviour(gen_server).
 
 %% API
+-export([start_link/2]).
 -export([start_link/3]).
--export([start_link/4]).
 -export([stop/1]).
 
 -export([set_targets/2]).
@@ -85,13 +85,11 @@
 %%           {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link(Name, WorkerMod, WorkerSup) ->
-    start_link(Name, WorkerMod, WorkerSup, _WorkerConfig = []).
-start_link(Name, WorkerMod, WorkerSup, WorkerConfig)
-  when is_atom(Name), is_atom(WorkerMod), is_pid(WorkerSup),
-       is_list(WorkerConfig) ->
-    gen_server:start_link({local, Name}, ?MODULE,
-                          [WorkerMod, WorkerSup, WorkerConfig], []).
+start_link(WorkerMod, WorkerSup) ->
+    start_link(WorkerMod, WorkerSup, _WorkerConfig = []).
+start_link(WorkerMod, WorkerSup, WorkerConfig)
+  when is_atom(WorkerMod), is_pid(WorkerSup), is_list(WorkerConfig) ->
+    gen_server:start_link(?MODULE, [WorkerMod, WorkerSup, WorkerConfig], []).
 
 stop(Server) ->
     gen_server:call(Server, stop).

@@ -47,7 +47,7 @@
 %% API
 -export([start_link/0]).
 -export([stop/0]).
--export([start_worker_controller/4]).
+-export([start_worker_controller/3]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -79,8 +79,8 @@ stop() ->
     end,
     ok.
 
-start_worker_controller(Name, WorkerMod, WorkerSup, WorkerConfig) ->
-    supervisor:start_child(?SERVER, [Name, WorkerMod, WorkerSup, WorkerConfig]).
+start_worker_controller(WorkerMod, WorkerSup, WorkerConfig) ->
+    supervisor:start_child(?SERVER, [WorkerMod, WorkerSup, WorkerConfig]).
 
 %%%===================================================================
 %%% Supervisor callbacks
