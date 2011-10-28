@@ -103,7 +103,7 @@ t_pass_worker_config_to_worker_on_restart(
   [Pid, WorkerSup, WorkerMod, MockModule, WorkerConfig|_]) ->
     ok = breeze_worker_controller:start_workers(Pid, 1),
     [Worker] = get_workers(WorkerSup),
-    sync_exit(Worker),
+    sync_exit_worker(Worker, WorkerSup),
     ?assertNot(meck:called(WorkerMod, start_link, [MockModule, [], []])),
     ?assertEqual(2, meck:num_calls(WorkerMod, start_link,
                                    [MockModule, WorkerConfig, []])).
@@ -117,7 +117,7 @@ t_should_not_allow_start_workers_once([Pid, WorkerSup | _ ]) ->
 t_restart_worker_when_it_crash([Pid, WorkerSup | _]) ->
     ok = breeze_worker_controller:start_workers(Pid, 1),
     [Worker] = get_workers(WorkerSup),
-    sync_exit(Worker),
+    sync_exit_worker(Worker, WorkerSup),
     ?assert_workers(WorkerSup, 1).
 
 t_restarted_worker_should_keep_its_place([Pid, WorkerSup | _]) ->
@@ -129,7 +129,7 @@ t_restarted_worker_should_keep_its_place([Pid, WorkerSup | _]) ->
     ok = breeze_worker_controller:sync(Pid),
     [FirstWorker | _ ] = OrderedWorkers = order_workers(Workers, Msg1),
     assert_workers_process_func_is_called(OrderedWorkers, [1, 0], Msg1),
-    sync_exit(FirstWorker),
+    sync_exit_worker(FirstWorker, WorkerSup),
     NewWorker = get_new_worker_pid(WorkerSup, Workers),
     OrderedWorkers2 = replace(OrderedWorkers, FirstWorker, NewWorker),
     keyhash_cast_and_assert(Pid, Msg1, OrderedWorkers2, [1, 0]),
@@ -257,7 +257,8 @@ t_dynamic_workers_should_be_restarted_if_they_crash(
     breeze_worker_controller:dynamic_cast(Pid, Msg2),
     breeze_worker_controller:sync(Pid),
     Workers = [WorkerPid1, WorkerPid2] = get_workers(WorkerSup),
-    sync_exit(WorkerPid1),
+    ?assertEqual(2, meck:num_calls(WorkerMod, start_link, '_')),
+    sync_exit_worker(WorkerPid1, WorkerSup),
     ?assertEqual(3, meck:num_calls(WorkerMod, start_link, '_')),
     ?assert_workers(WorkerSup, 2),
     NewWorker = get_new_worker_pid(WorkerSup, Workers),
@@ -436,11 +437,21 @@ replace([Other | Rest], Old, New) ->
 replace([], _Old, _New) ->
     [].
 
-sync_exit(Pid) ->
-    Ref = monitor(process, Pid),
-    exit(Pid, crash),
+sync_exit_worker(WorkerPid, WorkerSup) ->
+    Ref = monitor(process, WorkerPid),
+    Workers = supervisor:count_children(WorkerSup),
+    exit(WorkerPid, crash),
     receive {'DOWN', Ref, process, _, _} -> ok end,
-    timer:sleep(50). %% TODO: Find a way to get rid of this sleep.
+    wait_for_workers(WorkerSup, Workers).
+
+wait_for_workers(WorkerSup, ExpectedWorkers) ->
+    case supervisor:count_children(WorkerSup) of
+	ExpectedWorkers ->
+	    ok;
+	_ ->
+	    timer:sleep(50),
+	    wait_for_workers(WorkerSup, ExpectedWorkers)
+    end.
 
 get_new_worker_pid(WorkerSup, OldWorkers) ->
     NewWorkers = get_workers(WorkerSup),
